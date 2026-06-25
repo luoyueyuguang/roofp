@@ -1,0 +1,41 @@
+{
+  "title": "Example Roofline",
+  "output": "roofline.svg",
+  "plot": {
+    "width": 1280,
+    "height": 720
+  },
+  "ideal": {
+    "label": "Ideal roof",
+    "compute": "1.2 TFLOP/s",
+    "bandwidth": "800 GB/s"
+  },
+  "actual": {
+    "label": "Measured roof",
+    "compute": "800 GFLOP/s",
+    "bandwidth": "500 GB/s"
+  },
+  "operators": [
+    {
+      "name": "GEMM",
+      "compute": "650 GFLOP/s",
+      "bandwidth": "200 GB/s"
+    },
+    {
+      "name": "Attention",
+      "compute": {
+        "value": 280,
+        "unit": "GFLOP/s"
+      },
+      "bandwidth": {
+        "value": 220,
+        "unit": "GB/s"
+      }
+    },
+    {
+      "name": "LayerNorm",
+      "compute": "90 GFLOP/s",
+      "bandwidth": "180 GB/s"
+    }
+  ]
+}

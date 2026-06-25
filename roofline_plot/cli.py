@@ -1,0 +1,157 @@
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+
+from .model import OperatorPoint, PlotRequest, RoofSpec
+from .plot import write_plot
+from .units import parse_bandwidth, parse_compute
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Generate a roofline SVG plot.")
+    parser.add_argument("--config", help="Path to a JSON config file.")
+    parser.add_argument("--title", help="Plot title.")
+    parser.add_argument("--output", help="Output SVG path.")
+    parser.add_argument("--width", type=int, help="Canvas width.")
+    parser.add_argument("--height", type=int, help="Canvas height.")
+
+    parser.add_argument(
+        "--ideal-compute",
+        help='Ideal peak compute, for example "1.2 TFLOP/s" or 1.2e12.',
+    )
+    parser.add_argument(
+        "--ideal-bandwidth",
+        help='Ideal peak bandwidth, for example "800 GB/s" or 8.0e11.',
+    )
+    parser.add_argument(
+        "--actual-compute",
+        help='Measured peak compute, for example "800 GFLOP/s".',
+    )
+    parser.add_argument(
+        "--actual-bandwidth",
+        help='Measured peak bandwidth, for example "500 GB/s".',
+    )
+    parser.add_argument(
+        "--operator",
+        nargs=3,
+        action="append",
+        metavar=("NAME", "COMPUTE", "BANDWIDTH"),
+        help='Operator point as: name compute bandwidth. Repeatable. Quote values with spaces, for example --operator GEMM "650 GFLOP/s" "200 GB/s".',
+    )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    request, output_path = load_request_from_args(args)
+    output_file = Path(output_path)
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    write_plot(request, str(output_file))
+    print(f"Wrote roofline plot to {output_file}")
+    return 0
+
+
+def load_request_from_args(args: argparse.Namespace) -> tuple[PlotRequest, str]:
+    config = _load_config(args.config) if args.config else {}
+
+    title = args.title or config.get("title", "Roofline Plot")
+    output = args.output or config.get("output", "roofline.svg")
+    plot_config = config.get("plot", {})
+    width = args.width or plot_config.get("width", 1280)
+    height = args.height or plot_config.get("height", 720)
+
+    ideal_config = config.get("ideal", {})
+    ideal = _build_roof(
+        default_label=ideal_config.get("label", "Ideal roof"),
+        color="#2563eb",
+        compute=args.ideal_compute
+        if args.ideal_compute is not None
+        else ideal_config.get("compute"),
+        bandwidth=args.ideal_bandwidth
+        if args.ideal_bandwidth is not None
+        else ideal_config.get("bandwidth"),
+    )
+
+    actual_config = config.get("actual", {})
+    actual_compute = (
+        args.actual_compute if args.actual_compute is not None else actual_config.get("compute")
+    )
+    actual_bandwidth = (
+        args.actual_bandwidth
+        if args.actual_bandwidth is not None
+        else actual_config.get("bandwidth")
+    )
+    actual = None
+    if actual_compute is not None or actual_bandwidth is not None:
+        actual = _build_roof(
+            default_label=actual_config.get("label", "Measured roof"),
+            color="#dc2626",
+            compute=actual_compute,
+            bandwidth=actual_bandwidth,
+        )
+
+    operators = (
+        [_operator_from_cli(item) for item in args.operator]
+        if args.operator
+        else [_operator_from_mapping(item) for item in config.get("operators", [])]
+    )
+
+    return (
+        PlotRequest(
+            title=title,
+            ideal=ideal,
+            actual=actual,
+            operators=operators,
+            width=width,
+            height=height,
+        ),
+        output,
+    )
+
+
+def _load_config(config_path: str) -> dict:
+    with open(config_path, "r", encoding="utf-8") as handle:
+        data = json.load(handle)
+    if not isinstance(data, dict):
+        raise ValueError("Config root must be a JSON object")
+    return data
+
+
+def _build_roof(default_label: str, color: str, compute, bandwidth) -> RoofSpec:
+    if compute is None or bandwidth is None:
+        raise ValueError(
+            f"{default_label} requires both compute and bandwidth. "
+            "Provide them in JSON config or CLI arguments."
+        )
+    return RoofSpec(
+        label=default_label,
+        compute=parse_compute(compute),
+        bandwidth=parse_bandwidth(bandwidth),
+        color=color,
+    )
+
+
+def _operator_from_cli(values: list[str]) -> OperatorPoint:
+    name, compute, bandwidth = values
+    return OperatorPoint(
+        name=name,
+        compute=parse_compute(compute),
+        bandwidth=parse_bandwidth(bandwidth),
+    )
+
+
+def _operator_from_mapping(item: dict) -> OperatorPoint:
+    if not isinstance(item, dict):
+        raise ValueError("Each operator entry must be a JSON object")
+    name = item.get("name") or item.get("label")
+    if not name:
+        raise ValueError("Each operator entry requires a name")
+    return OperatorPoint(
+        name=str(name),
+        compute=parse_compute(item["compute"]),
+        bandwidth=parse_bandwidth(item["bandwidth"]),
+        color=str(item.get("color", "#1f2937")),
+    )

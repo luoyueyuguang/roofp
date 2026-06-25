@@ -1,0 +1,139 @@
+# Roofline Plot
+
+This project generates roofline plots from either a JSON config file or
+command-line arguments. It uses `matplotlib` for rendering and can write SVG,
+PNG, PDF, or any other format supported by `matplotlib`.
+
+## What the inputs mean
+
+- `compute`: throughput in `FLOP/s`
+- `bandwidth`: memory throughput in `Byte/s`
+- `arithmetic intensity`: `compute / bandwidth`, in `FLOP/Byte`
+
+For each roof, the tool builds:
+
+- memory roof: `performance = bandwidth * arithmetic intensity`
+- compute roof: `performance = peak FLOP/s`
+- ridge point: `peak FLOP/s / bandwidth`
+
+For each operator point, the tool uses:
+
+- x axis: `operator_compute / operator_bandwidth`
+- y axis: `operator_compute`
+
+## Quick start
+
+Install dependencies:
+
+```bash
+uv sync
+```
+
+Run with a JSON config:
+
+```bash
+uv run python -m roofline_plot --config examples/sample_config.json
+```
+
+Run with command-line arguments only:
+
+```bash
+uv run python -m roofline_plot \
+  --ideal-compute "1.2 TFLOP/s" \
+  --ideal-bandwidth "800 GB/s" \
+  --actual-compute "800 GFLOP/s" \
+  --actual-bandwidth "500 GB/s" \
+  --operator GEMM "650 GFLOP/s" "200 GB/s" \
+  --operator Attention "280 GFLOP/s" "220 GB/s" \
+  --output roofline.svg
+```
+
+Run with only ideal roof values:
+
+```bash
+uv run python -m roofline_plot \
+  --ideal-compute "1.2 TFLOP/s" \
+  --ideal-bandwidth "800 GB/s" \
+  --output ideal_only.svg
+```
+
+If both JSON config and CLI values are provided, CLI values override the same
+fields from config.
+
+## Supported units
+
+Compute values are normalized to `FLOP/s`. Supported examples:
+
+- `1e12`
+- `1200 GFLOP/s`
+- `1.2 TFLOP/s`
+- `{"value": 1.2, "unit": "TFLOP/s"}`
+
+Bandwidth values are normalized to `Byte/s`. Supported examples:
+
+- `8e11`
+- `800 GB/s`
+- `745 GiB/s`
+- `{"value": 800, "unit": "GB/s"}`
+
+Plain numbers are accepted for backwards compatibility. They are interpreted as
+already normalized values: `FLOP/s` for compute and `Byte/s` for bandwidth.
+
+## JSON config format
+
+```json
+{
+  "title": "Example Roofline",
+  "output": "roofline.svg",
+  "plot": {
+    "width": 1280,
+    "height": 720
+  },
+  "ideal": {
+    "label": "Ideal roof",
+    "compute": "1.2 TFLOP/s",
+    "bandwidth": "800 GB/s"
+  },
+  "actual": {
+    "label": "Measured roof",
+    "compute": "800 GFLOP/s",
+    "bandwidth": "500 GB/s"
+  },
+  "operators": [
+    {
+      "name": "GEMM",
+      "compute": "650 GFLOP/s",
+      "bandwidth": "200 GB/s"
+    },
+    {
+      "name": "Attention",
+      "compute": {
+        "value": 280,
+        "unit": "GFLOP/s"
+      },
+      "bandwidth": {
+        "value": 220,
+        "unit": "GB/s"
+      }
+    }
+  ]
+}
+```
+
+Notes:
+
+- `ideal` is required.
+- `actual` is optional.
+- `operators` is optional and can be empty or contain many items.
+- All `compute` and `bandwidth` values must be positive.
+
+## Output
+
+The output format is determined by the output filename suffix, for example
+`roofline.svg`, `roofline.png`, or `roofline.pdf`.
+
+## Tests
+
+```bash
+uv run python -m unittest discover -s tests -v
+```
