@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "roofline-plot"
+name = "roofp"
 version = "0.1.0"
 description = "A roofline plotting tool with JSON and CLI inputs."
 readme = "README.md"
@@ -11,7 +11,10 @@ requires-python = ">=3.10"
 dependencies = ["matplotlib>=3.8"]
 
 [project.scripts]
-roofline-plot = "roofline_plot.cli:main"
+roofp = "roofp.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["roofline_plot*"]
+include = ["roofp*"]
+
+[tool.uv]
+package = false

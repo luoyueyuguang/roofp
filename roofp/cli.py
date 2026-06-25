@@ -10,7 +10,7 @@ from .units import parse_bandwidth, parse_compute
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Generate a roofline SVG plot.")
+    parser = argparse.ArgumentParser(description="Generate a roofline plot.")
     parser.add_argument("--config", help="Path to a JSON config file.")
     parser.add_argument("--title", help="Plot title.")
     parser.add_argument("--output", help="Output SVG path.")
@@ -57,7 +57,7 @@ def main(argv: list[str] | None = None) -> int:
 def load_request_from_args(args: argparse.Namespace) -> tuple[PlotRequest, str]:
     config = _load_config(args.config) if args.config else {}
 
-    title = args.title or config.get("title", "Roofline Plot")
+    title = args.title or config.get("title", "roofp")
     output = args.output or config.get("output", "roofline.svg")
     plot_config = config.get("plot", {})
     width = args.width or plot_config.get("width", 1280)

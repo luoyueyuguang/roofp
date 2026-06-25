@@ -3,9 +3,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from roofline_plot.cli import build_parser, load_request_from_args
-from roofline_plot.model import OperatorPoint, RoofSpec
-from roofline_plot.units import parse_bandwidth, parse_compute
+from roofp.cli import build_parser, load_request_from_args
+from roofp.model import OperatorPoint, RoofSpec
+from roofp.units import parse_bandwidth, parse_compute
 
 
 class RooflineModelTests(unittest.TestCase):

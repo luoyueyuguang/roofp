@@ -1,4 +1,4 @@
-# Roofline Plot
+# roofp
 
 This project generates roofline plots from either a JSON config file or
 command-line arguments. It uses `matplotlib` for rendering and can write SVG,
@@ -32,13 +32,13 @@ uv sync
 Run with a JSON config:
 
 ```bash
-uv run python -m roofline_plot --config examples/sample_config.json
+uv run python -m roofp --config examples/sample_config.json
 ```
 
 Run with command-line arguments only:
 
 ```bash
-uv run python -m roofline_plot \
+uv run python -m roofp \
   --ideal-compute "1.2 TFLOP/s" \
   --ideal-bandwidth "800 GB/s" \
   --actual-compute "800 GFLOP/s" \
@@ -51,7 +51,7 @@ uv run python -m roofline_plot \
 Run with only ideal roof values:
 
 ```bash
-uv run python -m roofline_plot \
+uv run python -m roofp \
   --ideal-compute "1.2 TFLOP/s" \
   --ideal-bandwidth "800 GB/s" \
   --output ideal_only.svg
