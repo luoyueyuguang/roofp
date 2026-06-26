@@ -8,6 +8,7 @@ version = "0.1.0"
 description = "A roofline plotting tool with JSON and CLI inputs."
 readme = "README.md"
 requires-python = ">=3.10"
+license = "MIT"
 dependencies = ["matplotlib>=3.8"]
 
 [project.scripts]
