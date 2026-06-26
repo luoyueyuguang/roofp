@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/logo.png" width="220" alt="roofp Logo">
+</p>
+
 <h1 align="center">roofp</h1>
 
 <p align="center">
