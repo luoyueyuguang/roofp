@@ -1,4 +1,14 @@
-# roofp
+<h1 align="center">roofp</h1>
+
+<p align="center">
+  <strong>Configurable roofline plotting for compute, bandwidth, and operator performance.</strong>
+</p>
+
+<p align="center">
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python 3.10+"></a>
+  <a href="https://opensource.org/license/mit/"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License"></a>
+  <a href="https://matplotlib.org/"><img src="https://img.shields.io/badge/Plotting-matplotlib-11557c" alt="matplotlib"></a>
+</p>
 
 This project generates roofline plots from either a JSON config file or
 command-line arguments. It uses `matplotlib` for rendering and can write SVG,
