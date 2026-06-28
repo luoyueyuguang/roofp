@@ -1,3 +1,5 @@
+[中文版](README_zh.md) &nbsp;|&nbsp; [Quick Start](#quick-start) &nbsp;|&nbsp; [MCP Server](#mcp-server) &nbsp;|&nbsp; [AI Agent Skill](#ai-agent-skill) &nbsp;|&nbsp; [JSON Config](#json-config-format) &nbsp;|&nbsp; [Tests](#tests)
+
 <p align="center">
   <img src="docs/assets/logo.png" width="220" alt="roofp Logo">
 </p>
@@ -174,6 +176,67 @@ Notes:
 
 The output format is determined by the output filename suffix, for example
 `roofline.svg`, `roofline.png`, or `roofline.pdf`.
+
+
+## MCP Server
+
+roofp exposes an MCP (Model Context Protocol) server for AI agents to call directly:
+
+```bash
+uv run roofp-mcp
+```
+
+Three tools are available:
+
+| Tool | Description |
+|---|---|
+| `analyze_performance` | Quick bottleneck diagnosis: bound type, headroom, ridge ratio, natural-language description. No plot. |
+| `generate_roofline` | Full analysis + SVG roofline plot. |
+| `compare_rooflines` | Compare operators across multiple hardware configs with comparison matrix + SVG overlay. |
+
+Configure your MCP client (e.g. Claude Desktop, Codex) with:
+
+```json
+{
+  "mcpServers": {
+    "roofp": {
+      "command": "uv",
+      "args": ["run", "roofp-mcp"]
+    }
+  }
+}
+```
+
+## AI Agent Skill
+
+`skill.md` teaches AI coding agents when and how to use roofp. Download it into each
+tool's skills directory:
+
+**Oh My Pi** — place in the project's skills directory, then reference via `skill://roofp`:
+```bash
+curl -o skills/roofp.md https://raw.githubusercontent.com/<user>/roofp/main/skill.md
+```
+
+**Claude Code** — copy to Claude's user skills directory:
+```bash
+mkdir -p ~/.claude/skills
+curl -o ~/.claude/skills/roofp.md https://raw.githubusercontent.com/<user>/roofp/main/skill.md
+```
+
+**Codex (OpenAI)** — copy to Codex skills directory:
+```bash
+mkdir -p ~/.codex/skills
+curl -o ~/.codex/skills/roofp.md https://raw.githubusercontent.com/<user>/roofp/main/skill.md
+```
+
+**OpenCode** — copy to project-local skills:
+```bash
+mkdir -p .opencode/skills
+curl -o .opencode/skills/roofp.md https://raw.githubusercontent.com/<user>/roofp/main/skill.md
+```
+
+The skill covers: when to invoke roofline analysis, MCP tool parameters, arithmetic intensity
+input formats, and how to interpret `bound` / `ridge_ratio` / `headroom_ratio` results.
 
 ## Tests
 

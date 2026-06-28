@@ -5,8 +5,9 @@ Roofline plot generator (`roofp`) — development conventions.
 ## Architecture
 
 - `model.py` — frozen dataclasses: `RoofSpec`, `OperatorPoint`, `PlotRequest`. Pure data + validation. Also `build_analysis()` for machine-readable JSON output.
-- `plot.py` — pure matplotlib rendering. Stateless, takes `PlotRequest`, writes file.
+- `plot.py` — pure matplotlib rendering. Stateless, takes `PlotRequest`, writes file (supports `BytesIO` for MCP).
 - `cli.py` — argparse + JSON config merging. Delegates to `model`/`plot`. Supports `--silent` for JSON-only output.
+- `mcp_server.py` — MCP stdio server exposing `analyze_performance`, `generate_roofline`, `compare_rooflines` tools.
 - `units.py` — parse human-readable `FLOP/s`, `Byte/s`, and `FLOP/Byte` strings into raw floats.
 
 ## Input conventions
