@@ -1,4 +1,4 @@
-[English](README.md) &nbsp;|&nbsp; [快速开始](#快速开始) &nbsp;|&nbsp; [MCP Server](#mcp-server) &nbsp;|&nbsp; [AI Agent Skill](#ai-agent-skill) &nbsp;|&nbsp; [JSON 配置](#json-配置格式) &nbsp;|&nbsp; [测试](#测试)
+[English](README.md) · [中文](README_zh.md) &nbsp;|&nbsp; [快速开始](#快速开始) · [MCP Server](#mcp-server) · [Skill](#ai-agent-skill) · [配置](#json-配置格式) · [测试](#测试)
 
 <p align="center">
   <img src="docs/assets/logo.png" width="220" alt="roofp Logo">
