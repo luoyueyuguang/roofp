@@ -13,7 +13,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Generate a roofline plot.")
     parser.add_argument("--config", help="Path to a JSON config file.")
     parser.add_argument("--title", help="Plot title.")
-    parser.add_argument("--output", help="Output SVG path.")
+    parser.add_argument("--output", help="Output path: image (default) or JSON analysis with --silent. Default: roofline.svg.")
     parser.add_argument("--width", type=int, help="Canvas width.")
     parser.add_argument("--height", type=int, help="Canvas height.")
 
@@ -53,11 +53,16 @@ def main(argv: list[str] | None = None) -> int:
     request, output_path = load_request_from_args(args)
 
     analysis = build_analysis(request)
-    print(json.dumps(analysis, indent=2))
+    analysis_json = json.dumps(analysis, indent=2)
 
     if args.silent:
+        output_file = Path(output_path)
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+        output_file.write_text(analysis_json, encoding="utf-8")
+        print(f"Wrote analysis to {output_file}", flush=True)
         return 0
 
+    print(analysis_json)
     output_file = Path(output_path)
     output_file.parent.mkdir(parents=True, exist_ok=True)
     write_plot(request, str(output_file))
