@@ -4,7 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
-from .model import OperatorPoint, PlotRequest, RoofSpec, _OPERATOR_COLORS
+from .model import OperatorPoint, PlotRequest, RoofSpec, _OPERATOR_COLORS, build_analysis
 from .plot import write_plot
 from .units import parse_bandwidth, parse_compute
 
@@ -40,17 +40,28 @@ def build_parser() -> argparse.ArgumentParser:
         metavar=("NAME", "COMPUTE", "BANDWIDTH"),
         help='Operator point as: name compute bandwidth. Repeatable. Quote values with spaces, for example --operator GEMM "650 GFLOP/s" "200 GB/s".',
     )
+    parser.add_argument(
+        "--silent",
+        action="store_true",
+        help="Output machine-readable JSON analysis only, skip image generation.",
+    )
     return parser
-
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     request, output_path = load_request_from_args(args)
+
+    analysis = build_analysis(request)
+    print(json.dumps(analysis, indent=2))
+
+    if args.silent:
+        return 0
+
     output_file = Path(output_path)
     output_file.parent.mkdir(parents=True, exist_ok=True)
     write_plot(request, str(output_file))
-    print(f"Wrote roofline plot to {output_file}")
+    print(f"Wrote roofline plot to {output_file}", flush=True)
     return 0
 
 

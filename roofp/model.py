@@ -75,3 +75,54 @@ class PlotRequest:
         if self.actual is not None:
             roofs.append(self.actual)
         return roofs
+
+
+def build_analysis(request: PlotRequest) -> dict:
+    """Produce a machine-readable analysis dict for the plot request."""
+    ridge = request.ideal.ridge_point
+    roof_compute = request.ideal.compute
+    roof_bw = request.ideal.bandwidth
+
+    roofs: dict[str, dict] = {
+        "ideal": {
+            "label": request.ideal.label,
+            "compute_flops": roof_compute,
+            "bandwidth_bytes": roof_bw,
+            "ridge_point_flop_per_byte": ridge,
+        }
+    }
+    if request.actual is not None:
+        roofs["actual"] = {
+            "label": request.actual.label,
+            "compute_flops": request.actual.compute,
+            "bandwidth_bytes": request.actual.bandwidth,
+            "ridge_point_flop_per_byte": request.actual.ridge_point,
+        }
+
+    operators = []
+    for op in request.operators:
+        ai = op.arithmetic_intensity
+        roof_perf = min(roof_compute, roof_bw * ai)
+        if ai < ridge:
+            bound = "memory"
+        elif ai > ridge:
+            bound = "compute"
+        else:
+            bound = "ridge"
+        operators.append({
+            "name": op.name,
+            "compute_flops": op.compute,
+            "bandwidth_bytes": op.bandwidth,
+            "arithmetic_intensity_flop_per_byte": ai,
+            "attainable_performance_flops": op.compute,
+            "bound": bound,
+            "ridge_ratio": ai / ridge,
+            "roof_performance_flops": roof_perf,
+            "headroom_ratio": op.compute / roof_perf if roof_perf else None,
+        })
+
+    return {
+        "title": request.title,
+        "roofs": roofs,
+        "operators": operators,
+    }
