@@ -37,3 +37,13 @@ Roofline plot generator (`roofp`) — development conventions.
 ```bash
 uv run python -m unittest discover -s tests -v
 ```
+
+## Git workflow
+
+Periodically squash related commits before pushing to keep history clean. Use interactive rebase:
+
+```bash
+git rebase -i <base>
+```
+
+Mark commits to squash with `s` (or `fixup` to discard the message). Reword the resulting commit to describe the combined change.
