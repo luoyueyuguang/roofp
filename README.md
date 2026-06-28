@@ -30,10 +30,12 @@ For each roof, the tool builds:
 - compute roof: `performance = peak FLOP/s`
 - ridge point: `peak FLOP/s / bandwidth`
 
-For each operator point, the tool uses:
+For each operator point, the tool accepts:
 
-- x axis: `operator_compute / operator_bandwidth`
-- y axis: `operator_compute`
+- `compute`: throughput in `FLOP/s`
+- `arithmetic_intensity`: in `FLOP/Byte` — directly places the operator on the x-axis
+
+The underlying bandwidth is derived as `compute / arithmetic_intensity`.
 
 ## Quick start
 
@@ -70,6 +72,25 @@ uv run python -m roofp \
   --ideal-bandwidth "800 GB/s" \
   --output ideal_only.svg
 ```
+
+### Silent mode (JSON analysis only)
+
+`--silent` skips image generation and writes machine-readable JSON analysis to `--output`:
+
+```bash
+uv run python -m roofp --silent \
+  --ideal-compute "1.2 TFLOP/s" \
+  --ideal-bandwidth "800 GB/s" \
+  --operator GEMM "650 GFLOP/s" "3.25 FLOP/Byte" \
+  --output analysis.json
+```
+
+The JSON includes per-operator analysis:
+
+- `bound` — `"memory"` or `"compute"` relative to the ideal ridge point
+- `ridge_ratio` — AI / ridge_point (>1 = compute-bound)
+- `roof_performance_flops` — roofline ceiling at this AI
+- `headroom_ratio` — current perf / roof perf
 
 If both JSON config and CLI values are provided, CLI values override the same
 fields from config.
@@ -146,7 +167,8 @@ Notes:
 - `ideal` is required.
 - `actual` is optional.
 - `operators` is optional and can be empty or contain many items.
-- All `compute` and `bandwidth` values must be positive.
+- Each operator requires `compute` and `arithmetic_intensity`.
+- All `compute`, `bandwidth`, and `arithmetic_intensity` values must be positive.
 
 ## Output
 

@@ -4,10 +4,17 @@ Roofline plot generator (`roofp`) — development conventions.
 
 ## Architecture
 
-- `model.py` — frozen dataclasses: `RoofSpec`, `OperatorPoint`, `PlotRequest`. No logic beyond validation.
+- `model.py` — frozen dataclasses: `RoofSpec`, `OperatorPoint`, `PlotRequest`. Pure data + validation. Also `build_analysis()` for machine-readable JSON output.
 - `plot.py` — pure matplotlib rendering. Stateless, takes `PlotRequest`, writes file.
-- `cli.py` — argparse + JSON config merging. Delegates to `model`/`plot`.
-- `units.py` — parse human-readable compute/bandwidth strings into raw FLOP/s and Byte/s.
+- `cli.py` — argparse + JSON config merging. Delegates to `model`/`plot`. Supports `--silent` for JSON-only output.
+- `units.py` — parse human-readable `FLOP/s`, `Byte/s`, and `FLOP/Byte` strings into raw floats.
+
+## Input conventions
+
+- **Roofs**: `compute` (FLOP/s) + `bandwidth` (Byte/s). Ridge point = `compute / bandwidth`.
+- **Operators**: `compute` (FLOP/s) + `arithmetic_intensity` (FLOP/Byte). Bandwidth is derived internally as `compute / ai`.
+- CLI `--operator` takes three positional args: `NAME COMPUTE AI`.
+- JSON config operators use `arithmetic_intensity` field (not `bandwidth`).
 
 ## Adding a plot feature
 
