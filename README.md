@@ -105,9 +105,9 @@ Compute values are normalized to `FLOP/s`. Supported examples:
 - `{"value": 1.2, "unit": "TFLOP/s"}`
 
 Arithmetic intensity values are normalized to `FLOP/Byte`. Supported examples:
-
 - `3.25`
 - `3.25 FLOP/Byte`
+- `650/200` or `"650 GFLOP/s / 200 GB/s"` (ratio, auto-computed)
 - `{"value": 3.25, "unit": "FLOP/Byte"}`
 
 

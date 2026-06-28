@@ -71,8 +71,42 @@ def parse_bandwidth(value: Any) -> float:
     )
 
 
+
+def _is_plain_number(s: str) -> bool:
+    """Check if string is a plain numeric value (no unit)."""
+    try:
+        float(s)
+        return True
+    except ValueError:
+        return False
+
 def parse_arithmetic_intensity(value: Any) -> float:
-    """Parse arithmetic intensity into FLOP/Byte."""
+    """Parse arithmetic intensity into FLOP/Byte.
+
+    Accepts:
+    - plain number: 3.25
+    - unit string: "3.25 FLOP/Byte"
+    - ratio with units: "650 GFLOP/s / 200 GB/s"
+    - bare ratio: "650/200"
+    """
+    if isinstance(value, str):
+        # ratio format: "A / B" or "A/B"
+        stripped = value.strip()
+        if "/" in stripped:
+            # try split on " / " first, then bare "/"
+            sep = " / " if " / " in stripped else "/"
+            parts = [p.strip() for p in stripped.rsplit(sep, 1)]
+            if len(parts) == 2:
+                left, right = parts
+                # bare numbers
+                if _is_plain_number(left) and _is_plain_number(right):
+                    return float(left) / float(right)
+                # units on both sides
+                try:
+                    return parse_compute(left) / parse_bandwidth(right)
+                except ValueError:
+                    pass  # fall through to standard parse
+
     numeric, unit = _split_quantity(value, default_unit="flop/byte")
     normalized = _normalize_unit(unit)
 
@@ -81,7 +115,8 @@ def parse_arithmetic_intensity(value: Any) -> float:
             return numeric
 
     raise ValueError(
-        f"Unsupported arithmetic intensity unit {unit!r}. Examples: FLOP/Byte, 3.25."
+        f"Unsupported arithmetic intensity unit {unit!r}. "
+        "Examples: 3.25, \"3.25 FLOP/Byte\", \"650/200\", \"650 GFLOP/s / 200 GB/s\"."
     )
 
 
