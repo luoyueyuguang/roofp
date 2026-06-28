@@ -12,8 +12,8 @@ Roofline plot generator (`roofp`) — development conventions.
 ## Input conventions
 
 - **Roofs**: `compute` (FLOP/s) + `bandwidth` (Byte/s). Ridge point = `compute / bandwidth`.
-- **Operators**: `compute` (FLOP/s) + `arithmetic_intensity` (FLOP/Byte). Bandwidth is derived internally as `compute / ai`.
-- CLI `--operator` takes three positional args: `NAME COMPUTE AI`.
+- **Operators**: `compute` (FLOP/s) + `arithmetic_intensity` (FLOP/Byte). Bandwidth is derived internally as `compute / arithmetic_intensity`.
+- CLI `--operator` takes three positional args: `NAME COMPUTE ARITHMETIC_INTENSITY`.
 - JSON config operators use `arithmetic_intensity` field (not `bandwidth`).
 
 ## Adding a plot feature

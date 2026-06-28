@@ -88,8 +88,8 @@ uv run python -m roofp --silent \
 The JSON includes per-operator analysis:
 
 - `bound` — `"memory"` or `"compute"` relative to the ideal ridge point
-- `ridge_ratio` — AI / ridge_point (>1 = compute-bound)
-- `roof_performance_flops` — roofline ceiling at this AI
+- `ridge_ratio` — arithmetic intensity / ridge_point (>1 = compute-bound)
+- `roof_performance_flops` — roofline ceiling at this arithmetic intensity
 - `headroom_ratio` — current perf / roof perf
 
 If both JSON config and CLI values are provided, CLI values override the same

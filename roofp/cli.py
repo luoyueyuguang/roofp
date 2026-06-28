@@ -37,8 +37,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--operator",
         nargs=3,
         action="append",
-        metavar=("NAME", "COMPUTE", "AI"),
-        help='Operator point as: name compute ai. Repeatable. Quote values with spaces, for example --operator GEMM "650 GFLOP/s" "3.25 FLOP/Byte".',
+        metavar=("NAME", "COMPUTE", "ARITHMETIC_INTENSITY"),
+        help='Operator point as: name compute arithmetic_intensity. Repeatable. Quote values with spaces, for example --operator GEMM "650 GFLOP/s" "3.25 FLOP/Byte".',
     )
     parser.add_argument(
         "--silent",
