@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import math
 
 
 def _validate_positive(name: str, value: float) -> float:
@@ -77,11 +78,28 @@ class PlotRequest:
         return roofs
 
 
+def _format_si(value: float, unit: str) -> str:
+    """Format a value with SI prefix, e.g. 1.2e12 → '1.20 T' + unit."""
+    if value == 0:
+        return f"0 {unit}"
+    prefixes = ["", "k", "M", "G", "T", "P", "E"]
+    exponent = int(math.log10(abs(value)) // 3)
+    exponent = max(0, min(exponent, len(prefixes) - 1))
+    scaled = value / 10 ** (exponent * 3)
+    return f"{scaled:.3g} {prefixes[exponent]}{unit}"
+
+
 def build_analysis(request: PlotRequest) -> dict:
     """Produce a machine-readable analysis dict for the plot request."""
     ridge = request.ideal.ridge_point
     roof_compute = request.ideal.compute
     roof_bw = request.ideal.bandwidth
+
+    roof_desc = (
+        f"Ideal roof: peak compute = {_format_si(roof_compute, 'FLOP/s')}, "
+        f"bandwidth = {_format_si(roof_bw, 'Byte/s')}, "
+        f"ridge point = {_format_si(ridge, 'FLOP/Byte')}"
+    )
 
     roofs: dict[str, dict] = {
         "ideal": {
@@ -109,6 +127,25 @@ def build_analysis(request: PlotRequest) -> dict:
             bound = "compute"
         else:
             bound = "ridge"
+        headroom = op.compute / roof_perf if roof_perf else None
+        ridge_ratio = ai / ridge
+
+        if bound == "memory":
+            bound_desc = "memory-bound (limited by bandwidth)"
+        elif bound == "compute":
+            bound_desc = "compute-bound (limited by peak FLOP/s)"
+        else:
+            bound_desc = "at ridge point"
+
+        pct = f"{headroom * 100:.1f}%" if headroom is not None else "N/A"
+        description = (
+            f"{op.name}: {_format_si(op.compute, 'FLOP/s')} "
+            f"at arithmetic intensity {_format_si(ai, 'FLOP/Byte')}, "
+            f"{bound_desc}, "
+            f"{ridge_ratio:.2f}× ridge point, "
+            f"reaches {pct} of ideal roofline ceiling"
+        )
+
         operators.append({
             "name": op.name,
             "compute_flops": op.compute,
@@ -116,13 +153,15 @@ def build_analysis(request: PlotRequest) -> dict:
             "arithmetic_intensity_flop_per_byte": ai,
             "attainable_performance_flops": op.compute,
             "bound": bound,
-            "ridge_ratio": ai / ridge,
+            "ridge_ratio": ridge_ratio,
             "roof_performance_flops": roof_perf,
-            "headroom_ratio": op.compute / roof_perf if roof_perf else None,
+            "headroom_ratio": headroom,
+            "description": description,
         })
 
     return {
         "title": request.title,
+        "roof_description": roof_desc,
         "roofs": roofs,
         "operators": operators,
     }
