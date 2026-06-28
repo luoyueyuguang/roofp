@@ -91,24 +91,24 @@ def _plot_roof(ax, roof: RoofSpec, x_values, dashed: bool) -> None:
 def _axis_bounds(request: PlotRequest) -> tuple[float, float, float, float]:
     x_candidates = [roof.ridge_point for roof in request.roofs]
     y_candidates = [roof.compute for roof in request.roofs]
-    bandwidth_candidates = [roof.bandwidth for roof in request.roofs]
 
     for operator in request.operators:
         x_candidates.append(operator.arithmetic_intensity)
         y_candidates.append(operator.compute)
-        bandwidth_candidates.append(operator.bandwidth)
 
     raw_x_min = min(x_candidates)
     raw_x_max = max(x_candidates)
     x_min = 10 ** math.floor(math.log10(raw_x_min) - 0.6)
     x_max = 10 ** math.ceil(math.log10(raw_x_max) + 0.6)
 
-    y_candidates.extend([bandwidth * x_min for bandwidth in bandwidth_candidates])
-    y_candidates.extend([bandwidth * x_max for bandwidth in bandwidth_candidates])
+    for roof in request.roofs:
+        y_candidates.append(min(roof.compute, roof.bandwidth * x_min))
+        y_candidates.append(min(roof.compute, roof.bandwidth * x_max))
+
     raw_y_min = min(y_candidates)
     raw_y_max = max(y_candidates)
-    y_min = 10 ** math.floor(math.log10(raw_y_min) - 0.2)
-    y_max = 10 ** math.ceil(math.log10(raw_y_max) + 0.2)
+    y_min = raw_y_min / 1.35
+    y_max = raw_y_max * 1.35
     return x_min, x_max, y_min, y_max
 
 

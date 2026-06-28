@@ -5,6 +5,7 @@ from pathlib import Path
 
 from roofp.cli import build_parser, load_request_from_args
 from roofp.model import OperatorPoint, RoofSpec
+from roofp.plot import _axis_bounds
 from roofp.units import parse_bandwidth, parse_compute
 
 
@@ -99,6 +100,28 @@ class RooflinePlotTests(unittest.TestCase):
         )
         self.assertEqual(request.operators, [])
         self.assertEqual(request.ideal.ridge_point, 4.0)
+
+    def test_axis_bounds_keep_roof_close_to_top(self) -> None:
+        request, _ = load_request_from_args(
+            build_parser().parse_args(
+                [
+                    "--ideal-compute",
+                    "1.2 TFLOP/s",
+                    "--ideal-bandwidth",
+                    "800 GB/s",
+                    "--actual-compute",
+                    "800 GFLOP/s",
+                    "--actual-bandwidth",
+                    "500 GB/s",
+                    "--operator",
+                    "GEMM",
+                    "650 GFLOP/s",
+                    "200 GB/s",
+                ]
+            )
+        )
+        _, _, _, y_max = _axis_bounds(request)
+        self.assertLessEqual(y_max / request.ideal.compute, 1.35)
 
 
 if __name__ == "__main__":
