@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import io
 import math
 import os
 from pathlib import Path
-
 os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib")
 
 import matplotlib
@@ -17,10 +17,12 @@ from matplotlib.ticker import FuncFormatter
 from .model import PlotRequest, RoofSpec
 
 
-def write_plot(request: PlotRequest, output_path: str) -> None:
-    path = Path(output_path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-
+def write_plot(request: PlotRequest, output_path: str | io.BytesIO) -> None:
+    if isinstance(output_path, io.BytesIO):
+        buf = output_path
+    else:
+        path = Path(output_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
     fig, ax = plt.subplots(figsize=(request.width / 100, request.height / 100), dpi=100)
     x_min, x_max, y_min, y_max = _axis_bounds(request)
     x_values = np.logspace(math.log10(x_min), math.log10(x_max), 512)
@@ -89,7 +91,7 @@ def write_plot(request: PlotRequest, output_path: str) -> None:
     ax.legend(loc="lower right", frameon=True)
 
     fig.tight_layout()
-    fig.savefig(path)
+    fig.savefig(output_path, format="svg")
     plt.close(fig)
 
 
