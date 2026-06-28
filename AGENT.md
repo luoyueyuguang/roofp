@@ -40,10 +40,16 @@ uv run python -m unittest discover -s tests -v
 
 ## Git workflow
 
-Periodically squash related commits before pushing to keep history clean. Use interactive rebase:
+Periodically squash related commits to keep history clean.
 
+**Squash last N commits:**
 ```bash
-git rebase -i <base>
+git reset --soft HEAD~N
+git commit -m "concise summary"
 ```
 
-Mark commits to squash with `s` (or `fixup` to discard the message). Reword the resulting commit to describe the combined change.
+**Squash specific commits via autosquash:**
+```bash
+git commit --fixup <target-sha>
+git rebase -i --autosquash <base>
+```
