@@ -55,11 +55,11 @@ def write_plot(request: PlotRequest, output_path: str) -> None:
             # drop lines to axes
             ax.plot(
                 [ai, ai], [y_min, perf],
-                color=operator.color, linestyle=":", linewidth=0.6, alpha=0.35, zorder=2,
+                color="#374151", linestyle="--", linewidth=1.1, alpha=0.75, zorder=2,
             )
             ax.plot(
                 [x_min, ai], [perf, perf],
-                color=operator.color, linestyle=":", linewidth=0.6, alpha=0.35, zorder=2,
+                color="#374151", linestyle="--", linewidth=1.1, alpha=0.75, zorder=2,
             )
             # coordinate labels on axes
             ax.annotate(
