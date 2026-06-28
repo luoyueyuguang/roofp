@@ -57,8 +57,8 @@ uv run python -m roofp \
   --ideal-bandwidth "800 GB/s" \
   --actual-compute "800 GFLOP/s" \
   --actual-bandwidth "500 GB/s" \
-  --operator GEMM "650 GFLOP/s" "200 GB/s" \
-  --operator Attention "280 GFLOP/s" "220 GB/s" \
+  --operator GEMM "650 GFLOP/s" "3.25 FLOP/Byte" \
+  --operator Attention "280 GFLOP/s" "1.273 FLOP/Byte" \
   --output roofline.svg
 ```
 
@@ -82,6 +82,13 @@ Compute values are normalized to `FLOP/s`. Supported examples:
 - `1200 GFLOP/s`
 - `1.2 TFLOP/s`
 - `{"value": 1.2, "unit": "TFLOP/s"}`
+
+Arithmetic intensity values are normalized to `FLOP/Byte`. Supported examples:
+
+- `3.25`
+- `3.25 FLOP/Byte`
+- `{"value": 3.25, "unit": "FLOP/Byte"}`
+
 
 Bandwidth values are normalized to `Byte/s`. Supported examples:
 
@@ -117,7 +124,7 @@ already normalized values: `FLOP/s` for compute and `Byte/s` for bandwidth.
     {
       "name": "GEMM",
       "compute": "650 GFLOP/s",
-      "bandwidth": "200 GB/s"
+      "arithmetic_intensity": "3.25 FLOP/Byte"
     },
     {
       "name": "Attention",
@@ -125,9 +132,9 @@ already normalized values: `FLOP/s` for compute and `Byte/s` for bandwidth.
         "value": 280,
         "unit": "GFLOP/s"
       },
-      "bandwidth": {
-        "value": 220,
-        "unit": "GB/s"
+      "arithmetic_intensity": {
+        "value": 1.273,
+        "unit": "FLOP/Byte"
       }
     }
   ]

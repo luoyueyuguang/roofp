@@ -6,7 +6,7 @@ from pathlib import Path
 
 from .model import OperatorPoint, PlotRequest, RoofSpec, _OPERATOR_COLORS, build_analysis
 from .plot import write_plot
-from .units import parse_bandwidth, parse_compute
+from .units import parse_arithmetic_intensity, parse_bandwidth, parse_compute
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -37,8 +37,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--operator",
         nargs=3,
         action="append",
-        metavar=("NAME", "COMPUTE", "BANDWIDTH"),
-        help='Operator point as: name compute bandwidth. Repeatable. Quote values with spaces, for example --operator GEMM "650 GFLOP/s" "200 GB/s".',
+        metavar=("NAME", "COMPUTE", "AI"),
+        help='Operator point as: name compute ai. Repeatable. Quote values with spaces, for example --operator GEMM "650 GFLOP/s" "3.25 FLOP/Byte".',
     )
     parser.add_argument(
         "--silent",
@@ -161,11 +161,13 @@ def _build_roof(default_label: str, color: str, compute, bandwidth) -> RoofSpec:
 
 
 def _operator_from_cli(values: list[str], color: str) -> OperatorPoint:
-    name, compute, bandwidth = values
+    name, compute, ai = values
+    compute_val = parse_compute(compute)
+    ai_val = parse_arithmetic_intensity(ai)
     return OperatorPoint(
         name=name,
-        compute=parse_compute(compute),
-        bandwidth=parse_bandwidth(bandwidth),
+        compute=compute_val,
+        bandwidth=compute_val / ai_val,
         color=color,
     )
 
@@ -176,9 +178,11 @@ def _operator_from_mapping(item: dict, auto_color: str) -> OperatorPoint:
     name = item.get("name") or item.get("label")
     if not name:
         raise ValueError("Each operator entry requires a name")
+    compute_val = parse_compute(item["compute"])
+    ai_val = parse_arithmetic_intensity(item["arithmetic_intensity"])
     return OperatorPoint(
         name=str(name),
-        compute=parse_compute(item["compute"]),
-        bandwidth=parse_bandwidth(item["bandwidth"]),
+        compute=compute_val,
+        bandwidth=compute_val / ai_val,
         color=str(item.get("color", auto_color)),
     )

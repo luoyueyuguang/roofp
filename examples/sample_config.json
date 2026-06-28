@@ -19,7 +19,7 @@
     {
       "name": "GEMM",
       "compute": "650 GFLOP/s",
-      "bandwidth": "200 GB/s"
+      "arithmetic_intensity": "3.25 FLOP/Byte"
     },
     {
       "name": "Attention",
@@ -27,15 +27,15 @@
         "value": 280,
         "unit": "GFLOP/s"
       },
-      "bandwidth": {
-        "value": 220,
-        "unit": "GB/s"
+      "arithmetic_intensity": {
+        "value": 1.273,
+        "unit": "FLOP/Byte"
       }
     },
     {
       "name": "LayerNorm",
       "compute": "90 GFLOP/s",
-      "bandwidth": "180 GB/s"
+      "arithmetic_intensity": "0.5 FLOP/Byte"
     }
   ]
 }

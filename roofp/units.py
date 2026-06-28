@@ -71,6 +71,20 @@ def parse_bandwidth(value: Any) -> float:
     )
 
 
+def parse_arithmetic_intensity(value: Any) -> float:
+    """Parse arithmetic intensity into FLOP/Byte."""
+    numeric, unit = _split_quantity(value, default_unit="flop/byte")
+    normalized = _normalize_unit(unit)
+
+    for suffix in ("flop/byte", "flops/byte", "flop/bytes", "flops/bytes"):
+        if normalized.endswith(suffix):
+            return numeric
+
+    raise ValueError(
+        f"Unsupported arithmetic intensity unit {unit!r}. Examples: FLOP/Byte, 3.25."
+    )
+
+
 def _split_quantity(value: Any, default_unit: str) -> tuple[float, str]:
     if isinstance(value, int | float):
         return float(value), default_unit

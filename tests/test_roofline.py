@@ -47,7 +47,7 @@ class RooflineCliTests(unittest.TestCase):
                 "--operator",
                 "Conv",
                 "90 FLOP/s",
-                "15 B/s",
+                "6 FLOP/Byte",
             ]
         )
         request, output = load_request_from_args(args)
@@ -74,7 +74,7 @@ class RooflineCliTests(unittest.TestCase):
         config = {
             "title": "Config Roofline",
             "ideal": {"compute": "120 FLOP/s", "bandwidth": "30 B/s"},
-            "operators": [{"name": "Conv", "compute": "90 FLOP/s", "bandwidth": "15 B/s"}],
+            "operators": [{"name": "Conv", "compute": "90 FLOP/s", "arithmetic_intensity": "6 FLOP/Byte"}],
         }
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.json"
@@ -116,7 +116,7 @@ class RooflinePlotTests(unittest.TestCase):
                     "--operator",
                     "GEMM",
                     "650 GFLOP/s",
-                    "200 GB/s",
+                    "3.25 FLOP/Byte",
                 ]
             )
         )
