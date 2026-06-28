@@ -45,6 +45,17 @@ class OperatorPoint:
         return self.compute / self.bandwidth
 
 
+_OPERATOR_COLORS = [
+    "#7c3aed",  # violet
+    "#059669",  # emerald
+    "#d97706",  # amber
+    "#db2777",  # pink
+    "#0891b2",  # cyan
+    "#65a30d",  # lime
+]
+
+
+
 @dataclass(frozen=True)
 class PlotRequest:
     title: str

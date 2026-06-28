@@ -4,7 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
-from .model import OperatorPoint, PlotRequest, RoofSpec
+from .model import OperatorPoint, PlotRequest, RoofSpec, _OPERATOR_COLORS
 from .plot import write_plot
 from .units import parse_bandwidth, parse_compute
 
@@ -94,9 +94,19 @@ def load_request_from_args(args: argparse.Namespace) -> tuple[PlotRequest, str]:
         )
 
     operators = (
-        [_operator_from_cli(item) for item in args.operator]
+        [
+            _operator_from_cli(
+                item, _OPERATOR_COLORS[i % len(_OPERATOR_COLORS)]
+            )
+            for i, item in enumerate(args.operator)
+        ]
         if args.operator
-        else [_operator_from_mapping(item) for item in config.get("operators", [])]
+        else [
+            _operator_from_mapping(
+                item, _OPERATOR_COLORS[i % len(_OPERATOR_COLORS)]
+            )
+            for i, item in enumerate(config.get("operators", []))
+        ]
     )
 
     return (
@@ -134,16 +144,17 @@ def _build_roof(default_label: str, color: str, compute, bandwidth) -> RoofSpec:
     )
 
 
-def _operator_from_cli(values: list[str]) -> OperatorPoint:
+def _operator_from_cli(values: list[str], color: str) -> OperatorPoint:
     name, compute, bandwidth = values
     return OperatorPoint(
         name=name,
         compute=parse_compute(compute),
         bandwidth=parse_bandwidth(bandwidth),
+        color=color,
     )
 
 
-def _operator_from_mapping(item: dict) -> OperatorPoint:
+def _operator_from_mapping(item: dict, auto_color: str) -> OperatorPoint:
     if not isinstance(item, dict):
         raise ValueError("Each operator entry must be a JSON object")
     name = item.get("name") or item.get("label")
@@ -153,5 +164,5 @@ def _operator_from_mapping(item: dict) -> OperatorPoint:
         name=str(name),
         compute=parse_compute(item["compute"]),
         bandwidth=parse_bandwidth(item["bandwidth"]),
-        color=str(item.get("color", "#1f2937")),
+        color=str(item.get("color", auto_color)),
     )

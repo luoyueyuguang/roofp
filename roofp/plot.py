@@ -29,11 +29,15 @@ def write_plot(request: PlotRequest, output_path: str) -> None:
     if request.actual is not None:
         _plot_roof(ax, request.actual, x_values, dashed=True)
 
+    _fill_regions(ax, request.ideal, x_min, x_max, y_min)
+
+
     if request.operators:
         for operator in request.operators:
+            ai = operator.arithmetic_intensity
+            perf = operator.compute
             ax.scatter(
-                operator.arithmetic_intensity,
-                operator.compute,
+                ai, perf,
                 s=58,
                 color=operator.color,
                 edgecolor="white",
@@ -42,11 +46,33 @@ def write_plot(request: PlotRequest, output_path: str) -> None:
             )
             ax.annotate(
                 operator.name,
-                (operator.arithmetic_intensity, operator.compute),
+                (ai, perf),
                 textcoords="offset points",
                 xytext=(7, 7),
                 fontsize=9,
                 color=operator.color,
+            )
+            # drop lines to axes
+            ax.plot(
+                [ai, ai], [y_min, perf],
+                color=operator.color, linestyle=":", linewidth=0.6, alpha=0.35, zorder=2,
+            )
+            ax.plot(
+                [x_min, ai], [perf, perf],
+                color=operator.color, linestyle=":", linewidth=0.6, alpha=0.35, zorder=2,
+            )
+            # coordinate labels on axes
+            ax.annotate(
+                _format_engineering(ai),
+                xy=(ai, 0), xycoords=("data", "axes fraction"),
+                xytext=(0, -14), textcoords="offset points",
+                fontsize=7, color=operator.color, ha="center", va="top",
+            )
+            ax.annotate(
+                _format_engineering(perf),
+                xy=(0, perf), xycoords=("axes fraction", "data"),
+                xytext=(-4, 0), textcoords="offset points",
+                fontsize=7, color=operator.color, ha="right", va="center",
             )
 
     ax.set_xscale("log")
@@ -67,7 +93,30 @@ def write_plot(request: PlotRequest, output_path: str) -> None:
     plt.close(fig)
 
 
+
+def _fill_regions(ax, roof: RoofSpec, x_min: float, x_max: float, y_min: float) -> None:
+    """Shade memory-bound and compute-bound regions under the roof."""
+    ridge = roof.ridge_point
+    n_pts = 256
+
+    # memory-bound: x in [x_min, ridge], y from y_min up to bandwidth * x
+    x_mem = np.logspace(math.log10(x_min), math.log10(ridge), n_pts)
+    ax.fill_between(
+        x_mem, y_min, roof.bandwidth * x_mem,
+        color="#22c55e", alpha=0.20, linewidth=0,
+        label="memory-bound",
+    )
+
+    # compute-bound: x in [ridge, x_max], y from y_min up to compute ceiling
+    x_cmp = np.logspace(math.log10(ridge), math.log10(x_max), n_pts)
+    ax.fill_between(
+        x_cmp, y_min, roof.compute,
+        color="#ef4444", alpha=0.20, linewidth=0,
+        label="compute-bound",
+    )
+
 def _plot_roof(ax, roof: RoofSpec, x_values, dashed: bool) -> None:
+
     y_values = np.minimum(roof.compute, roof.bandwidth * x_values)
     ax.plot(
         x_values,
@@ -108,7 +157,7 @@ def _axis_bounds(request: PlotRequest) -> tuple[float, float, float, float]:
     raw_y_min = min(y_candidates)
     raw_y_max = max(y_candidates)
     y_min = raw_y_min / 1.35
-    y_max = raw_y_max * 1.35
+    y_max = raw_y_max * 2.5
     return x_min, x_max, y_min, y_max
 
 

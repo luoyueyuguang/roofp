@@ -121,7 +121,7 @@ class RooflinePlotTests(unittest.TestCase):
             )
         )
         _, _, _, y_max = _axis_bounds(request)
-        self.assertLessEqual(y_max / request.ideal.compute, 1.35)
+        self.assertLessEqual(y_max / request.ideal.compute, 2.5)
 
 
 if __name__ == "__main__":
