@@ -7,13 +7,16 @@ import tarfile
 import zipfile
 from pathlib import Path
 
+DISTRIBUTION_NAME = "lyroofp"
+VERSION = "0.2.1"
+
 
 def main(directory: str = "dist") -> None:
     dist = Path(directory)
-    wheels = list(dist.glob("roofp-0.2.0-*.whl"))
-    sdists = list(dist.glob("roofp-0.2.0.tar.gz"))
+    wheels = list(dist.glob(f"{DISTRIBUTION_NAME}-{VERSION}-*.whl"))
+    sdists = list(dist.glob(f"{DISTRIBUTION_NAME}-{VERSION}.tar.gz"))
     if len(wheels) != 1 or len(sdists) != 1:
-        raise SystemExit("Expected exactly one roofp 0.2.0 wheel and sdist")
+        raise SystemExit(f"Expected exactly one {DISTRIBUTION_NAME} {VERSION} wheel and sdist")
 
     with zipfile.ZipFile(wheels[0]) as archive:
         wheel_names = set(archive.namelist())

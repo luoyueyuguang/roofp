@@ -31,6 +31,13 @@ roof 上限(I) = min(P, B * I)
 
 ## 安装与运行
 
+PyPI 发行包名称为 `lyroofp`，Python 导入名和命令名仍保持为 `roofp`：
+
+```bash
+python -m pip install lyroofp
+roofp --version
+```
+
 开发环境：
 
 ```bash

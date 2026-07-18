@@ -35,6 +35,14 @@ or measurement scope—not a valid utilization winner.
 
 ## Install and run
 
+The package is published under the distribution name `lyroofp`. The stable
+Python import and command names remain `roofp`:
+
+```bash
+python -m pip install lyroofp
+roofp --version
+```
+
 Development checkout:
 
 ```bash

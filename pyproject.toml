@@ -3,8 +3,8 @@ requires = ["setuptools>=83.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "roofp"
-version = "0.2.0"
+name = "lyroofp"
+version = "0.2.1"
 description = "Schema-versioned Roofline analysis, comparison, and plotting for humans and AI agents."
 readme = "README.md"
 requires-python = ">=3.10"
