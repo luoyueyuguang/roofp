@@ -1736,7 +1736,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "coverage", extras = ["toml"], specifier = ">=7.6" },
+    { name = "coverage", extras = ["toml"], specifier = ">=7.15.2" },
     { name = "mypy", specifier = ">=1.11" },
     { name = "ruff", specifier = ">=0.6" },
 ]
