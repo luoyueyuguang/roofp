@@ -1,237 +1,267 @@
-[English](README.md) · [中文](README_zh.md) &nbsp;|&nbsp; [快速开始](#快速开始) · [MCP Server](#mcp-server) · [Skill](#ai-agent-skill) · [配置](#json-配置格式) · [测试](#测试)
+[English](https://github.com/luoyueyuguang/roofp/blob/main/README.md) · [中文](https://github.com/luoyueyuguang/roofp/blob/main/README_zh.md)
 
 <p align="center">
-  <img src="docs/assets/logo.png" width="220" alt="roofp Logo">
+  <img src="https://raw.githubusercontent.com/luoyueyuguang/roofp/main/docs/assets/logo.png" width="220" alt="roofp logo">
 </p>
 
 <h1 align="center">roofp</h1>
 
 <p align="center">
-  <strong>可配置的 Roofline 性能分析工具，支持算力、带宽与算子性能可视化。</strong>
+  <strong>面向开发者与 AI Agent、带 schema 版本的 Roofline 分析、比较和绘图工具。</strong>
 </p>
 
-<p align="center">
-  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python 3.10+"></a>
-  <a href="https://opensource.org/license/mit/"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License"></a>
-  <a href="https://matplotlib.org/"><img src="https://img.shields.io/badge/Plotting-matplotlib-11557c" alt="matplotlib"></a>
-</p>
+roofp 支持 JSON 配置、命令行参数和结构化 MCP 调用，可输出 SVG、PNG、PDF
+以及机器可读的分析结果。0.2 版明确区分硬件理论能力与逐硬件实测利用率，并在
+schema 字段名中写明物理量单位。
 
-本项目通过 JSON 配置文件或命令行参数生成 roofline 图。使用 `matplotlib` 渲染，支持 SVG、PNG、PDF 等格式。
+## Roofline 模型
 
-## 参数含义
+设峰值算力 `P` 的单位为 `FLOP/s`，带宽 `B` 的单位为 `Byte/s`，计算强度
+`I` 的单位为 `FLOP/Byte`：
 
-- `compute`：峰值算力，单位 `FLOP/s`
-- `bandwidth`：内存带宽，单位 `Byte/s`
-- `arithmetic intensity`（计算强度）：`compute / bandwidth`，单位 `FLOP/Byte`
-
-每条 roofline 由以下部分构成：
-
-- 内存瓶颈线：`performance = bandwidth × arithmetic intensity`
-- 算力瓶颈线：`performance = peak FLOP/s`
-- 脊点（ridge point）：`peak FLOP/s / bandwidth`
-
-每个算子点的输入：
-
-- `compute`：算力，单位 `FLOP/s`
-- `arithmetic_intensity`：计算强度，单位 `FLOP/Byte` — 直接决定算子在 x 轴的位置
-
-内部自动推导带宽：`bandwidth = compute / arithmetic_intensity`。
-
-## 快速开始
-
-安装依赖：
-
-```bash
-uv sync
+```text
+脊点 = P / B
+roof 上限(I) = min(P, B * I)
+利用率 = 实测性能 / roof 上限(I)
 ```
 
-通过 JSON 配置运行：
+脊点左侧是内存瓶颈，右侧是算力瓶颈；在数值容差内等于脊点时返回 `ridge`。
+实测值超过所配置 roof 时，通常意味着单位、精度、FLOP 计数、稀疏性约定或
+测量范围不一致，不能把该异常值作为有效的利用率排名赢家。
+
+## 安装与运行
+
+开发环境：
 
 ```bash
-uv run python -m roofp --config examples/sample_config.json
+uv sync --locked --all-groups
+uv run --no-sync roofp --config examples/sample_config.json
 ```
 
-纯命令行参数：
+纯命令行示例：
 
 ```bash
-uv run python -m roofp \
+uv run --no-sync roofp \
   --ideal-compute "1.2 TFLOP/s" \
   --ideal-bandwidth "800 GB/s" \
   --actual-compute "800 GFLOP/s" \
   --actual-bandwidth "500 GB/s" \
   --operator GEMM "650 GFLOP/s" "3.25 FLOP/Byte" \
-  --operator Attention "280 GFLOP/s" "1.273 FLOP/Byte" \
   --output roofline.svg
 ```
 
-仅理想 roof：
+CLI 的标准输出只包含一个合法 JSON 文档，写文件状态输出到标准错误，因此可以
+安全地重定向：
 
 ```bash
-uv run python -m roofp \
-  --ideal-compute "1.2 TFLOP/s" \
-  --ideal-bandwidth "800 GB/s" \
-  --output ideal_only.svg
+uv run --no-sync roofp --config examples/sample_config.json > result.json
 ```
 
-### 静默模式（仅 JSON 分析）
+### 仅分析模式
 
-`--silent` 跳过图片生成，将机器可读的 JSON 分析写入 `--output`：
+`--analysis-only` 跳过绘图并原子写入 JSON；`--silent` 保留为兼容别名：
 
 ```bash
-uv run python -m roofp --silent \
+uv run --no-sync roofp --analysis-only \
   --ideal-compute "1.2 TFLOP/s" \
   --ideal-bandwidth "800 GB/s" \
   --operator GEMM "650 GFLOP/s" "3.25 FLOP/Byte" \
   --output analysis.json
 ```
 
-JSON 包含每个算子的分析：
-
-- `bound` — `"memory"`（内存瓶颈）或 `"compute"`（算力瓶颈），相对于理想脊点
-- `ridge_ratio` — 计算强度 / 脊点（>1 = 算力瓶颈）
-- `roof_performance_flops` — 该计算强度处的 roofline 理论上限
-- `headroom_ratio` — 当前性能 / 理论上限
-
-如果同时提供 JSON 配置和 CLI 参数，CLI 值会覆盖配置中的同名字段。
+如果配置中的输出是 `roofline.svg`，追加 `--analysis-only` 时会改用
+`analysis.json`；只有显式传入的 `.json` CLI 路径才会覆盖它。这样不会把 JSON
+误写入图片后缀文件。
 
 ## 支持的单位
 
-算力值归一化为 `FLOP/s`。支持的写法：
+JSON 配置可使用归一化数值、字符串或 `{ "value": ..., "unit": ... }` 对象。
 
-- `1e12`
-- `1200 GFLOP/s`
-- `1.2 TFLOP/s`
-- `{"value": 1.2, "unit": "TFLOP/s"}`
+| 物理量 | 归一化单位 | 示例 |
+|---|---|---|
+| 算力吞吐 | `FLOP/s` | `1e12`、`1200 GFLOP/s`、`1.2 TFLOP/s` |
+| 带宽 | `Byte/s` | `8e11`、`800 GB/s`、`745 GiB/s` |
+| 计算强度 | `FLOP/Byte` | `3.25`、`3.25 FLOP/Byte`、`650 GFLOP/s/200 GB/s` |
 
-计算强度归一化为 `FLOP/Byte`。支持的写法：
+前缀区分大小写：`M` 表示 mega，含义不清的 `m` 会被拒绝。大写 `B` 表示
+Byte；`Gb/s`、`Gbps` 等 bit-rate 写法不会被静默当作 Byte/s。裸 `FLOP`
+是操作数量而非吞吐率，因此会被拒绝；常见的 `GFLOPS` 吞吐写法仍受支持。
 
-- `3.25`
-- `3.25 FLOP/Byte`
-- `650/200` 或 `"650 GFLOP/s / 200 GB/s"`（比值，自动计算）
-- `{"value": 3.25, "unit": "FLOP/Byte"}`
+## JSON 配置
 
-带宽值归一化为 `Byte/s`。支持的写法：
-
-- `8e11`
-- `800 GB/s`
-- `745 GiB/s`
-- `{"value": 800, "unit": "GB/s"}`
-
-纯数字会被视为已归一化的值：算力 = `FLOP/s`，带宽 = `Byte/s`。
-
-## JSON 配置格式
+完整示例见 [sample_config.json](https://github.com/luoyueyuguang/roofp/blob/main/examples/sample_config.json)。
 
 ```json
 {
-  "title": "示例 Roofline",
+  "title": "Example Roofline",
   "output": "roofline.svg",
   "plot": {
     "width": 1280,
-    "height": 720
+    "height": 720,
+    "show_bound_regions": true
   },
   "ideal": {
-    "label": "理想 roof",
+    "label": "FP32 theoretical roof",
     "compute": "1.2 TFLOP/s",
-    "bandwidth": "800 GB/s"
-  },
-  "actual": {
-    "label": "实测 roof",
-    "compute": "800 GFLOP/s",
-    "bandwidth": "500 GB/s"
+    "bandwidth": "800 GB/s",
+    "precision": "FP32",
+    "compute_kind": "theoretical",
+    "bandwidth_level": "dram",
+    "bandwidth_kind": "theoretical",
+    "fma_flop_count": 2,
+    "sparsity": "dense"
   },
   "operators": [
     {
       "name": "GEMM",
       "compute": "650 GFLOP/s",
       "arithmetic_intensity": "3.25 FLOP/Byte"
-    },
-    {
-      "name": "Attention",
-      "compute": {
-        "value": 280,
-        "unit": "GFLOP/s"
-      },
-      "arithmetic_intensity": {
-        "value": 1.273,
-        "unit": "FLOP/Byte"
-      }
     }
   ]
 }
 ```
 
-注意事项：
+配置 schema 是严格的，拼错或未知字段会立即报错。`ideal` 必需，`actual` 可选；
+每条 roof 必须同时给出 compute 和 bandwidth。所有数值必须有限且为正。如果
+命令行提供一个或多个 `--operator`，它们会替换配置中的算子列表，而不是追加。
 
-- `ideal` 为必填项。
-- `actual` 为可选项。
-- `operators` 为可选项，可为空或包含多项。
-- 每个算子需要 `compute` 和 `arithmetic_intensity`。
-- 所有 `compute`、`bandwidth` 和 `arithmetic_intensity` 值必须为正数。
+## 分析 schema 2.0
 
-## 输出
+所有分析结果都带 `"schema_version": "2.0"`。关键字段直接写出量纲：
 
-输出格式由文件后缀决定，例如 `roofline.svg`、`roofline.png` 或 `roofline.pdf`。
+- `peak_compute_flop_per_second`
+- `bandwidth_byte_per_second`
+- `measured_performance_flop_per_second`
+- `achieved_bandwidth_byte_per_second`
+- `arithmetic_intensity_flop_per_byte`
+- `roof_ceiling_flop_per_second`
+
+每个算子的 `evaluations` 分别包含 `ideal`、`actual` 和 `additional_N` 结果；每项
+包括 `bound`、`ridge_ratio`、`utilization_ratio`、
+`remaining_headroom_ratio` 和 `above_roof`。0.2 有意移除了
+`headroom_ratio`、`compute_flops` 等含义或单位不清晰的 0.1 别名。
 
 ## MCP Server
 
-roofp 提供 MCP（Model Context Protocol）服务器，供 AI agent 直接调用：
+开发时可直接锁定依赖启动：
 
 ```bash
-uv run roofp-mcp
+uv run --locked roofp-mcp
 ```
 
-提供三个工具：
+长期运行的客户端建议先同步一次，再关闭启动时同步：
 
-| 工具 | 说明 |
-|---|---|
-| `analyze_performance` | 快速瓶颈诊断：bound 类型、headroom、ridge ratio、自然语言描述。不生成图。 |
-| `generate_roofline` | 完整分析 + SVG roofline 图。 |
-| `compare_rooflines` | 多硬件配置对比，含对比矩阵 + 瓶颈转移分析 + SVG 叠加图。 |
+```bash
+uv sync --locked
+uv run --no-sync roofp-mcp
+```
 
-配置 MCP 客户端（如 Claude Desktop、Codex）：
+客户端配置示例：
 
 ```json
 {
   "mcpServers": {
     "roofp": {
       "command": "uv",
-      "args": ["run", "roofp-mcp"]
+      "args": [
+        "run",
+        "--no-sync",
+        "--directory",
+        "/absolute/path/to/roofp",
+        "roofp-mcp"
+      ]
     }
   }
 }
 ```
 
+三个工具都使用结构化输入和结构化输出，不要再把列表手工编码成 JSON 字符串。
+
+### `analyze_performance`
+
+提供一条 roof 和一组实测算子，用于瓶颈诊断。输出会逐算子给出 roof 上限、
+瓶颈类型、利用率、剩余空间与 above-roof 状态。
+
+### `generate_roofline`
+
+接受必需的 `ideal`、可选的 `actual` 和算子列表。只有设置
+`include_svg: true` 才会返回 SVG；默认关闭是为了控制 Agent 响应体积。SVG 最多
+绘制 64 个点，超过时可关闭 SVG 后继续分析最多 256 个算子。
+
+### `compare_rooflines`
+
+理论比较只需要每个 workload 的计算强度。只有确实拥有逐硬件实测值时，才在
+对应 roof 标签下提供 measurements：
+
+```json
+{
+  "roofs": [
+    {
+      "label": "System A FP32",
+      "compute": "1.2 TFLOP/s",
+      "bandwidth": "800 GB/s",
+      "precision": "FP32",
+      "fma_flop_count": 2,
+      "bandwidth_level": "dram"
+    },
+    {
+      "label": "System B FP32",
+      "compute": "1.6 TFLOP/s",
+      "bandwidth": "600 GB/s",
+      "precision": "FP32",
+      "fma_flop_count": 2,
+      "bandwidth_level": "dram"
+    }
+  ],
+  "workloads": [
+    {
+      "name": "Kernel 1",
+      "arithmetic_intensity": "2 FLOP/Byte",
+      "measurements": [
+        {"roof_label": "System A FP32", "compute": "700 GFLOP/s"},
+        {"roof_label": "System B FP32", "compute": "850 GFLOP/s"}
+      ]
+    }
+  ]
+}
+```
+
+`best_theoretical_hardware` 表示理论能力排名；
+`best_valid_utilization_hardware` 只根据有效的逐硬件实测值产生。异常的 above-roof
+点会保留在 `excluded_above_roof_measurements`，但不会参与排名。precision、带宽
+层级、FMA 计数、稀疏性不一致或部分缺失时，结果会包含 metadata warnings。
+
 ## AI Agent Skill
 
-`skill.md` 教 AI 编程 agent 何时以及如何使用 roofp。将其下载到各工具的 skills 目录：
-
-**Oh My Pi** — 放到项目的 skills 目录，通过 `skill://roofp` 引用：
-```bash
-curl -o skills/roofp.md https://raw.githubusercontent.com/<user>/roofp/main/skill.md
-```
-
-**Claude Code** — 复制到 Claude 的用户 skills 目录：
-```bash
-mkdir -p ~/.claude/skills
-curl -o ~/.claude/skills/roofp.md https://raw.githubusercontent.com/<user>/roofp/main/skill.md
-```
-
-**Codex (OpenAI)** — 复制到 Codex skills 目录：
-```bash
-mkdir -p ~/.codex/skills
-curl -o ~/.codex/skills/roofp.md https://raw.githubusercontent.com/<user>/roofp/main/skill.md
-```
-
-**OpenCode** — 复制到项目本地 skills：
-```bash
-mkdir -p .opencode/skills
-curl -o .opencode/skills/roofp.md https://raw.githubusercontent.com/<user>/roofp/main/skill.md
-```
-
-Skill 涵盖：何时调用 roofline 分析、MCP 工具参数、计算强度输入格式，以及如何解读 `bound` / `ridge_ratio` / `headroom_ratio` 结果。
-
-## 测试
+仓库中的 [SKILL.md](https://github.com/luoyueyuguang/roofp/blob/main/SKILL.md)
+描述了 0.2 MCP 工作流。Codex 可安装固定版本：
 
 ```bash
-uv run python -m unittest discover -s tests -v
+mkdir -p ~/.codex/skills/roofp
+curl --fail --silent --show-error --location --proto '=https' \
+  --output ~/.codex/skills/roofp/SKILL.md \
+  https://raw.githubusercontent.com/luoyueyuguang/roofp/v0.2.0/SKILL.md
 ```
+
+其他 Agent 应按其官方文档把同一个固定版本文件放入技能目录。启用前应审阅下载的
+指令；发布页提供校验和后，再对照同一 tag 的校验和验证。本 README 不会在正式
+发布前虚构 checksum。
+
+## 测试与发布校验
+
+```bash
+uv sync --locked --all-groups
+uv run --no-sync python -W error -m unittest discover -s tests -v
+uv run --no-sync ruff check .
+uv run --no-sync mypy roofp
+uv run --no-sync coverage run -m unittest discover -s tests
+uv run --no-sync coverage report
+uv build
+```
+
+CI 覆盖 Python 3.10–3.14、最低直接依赖、MCP 协议、纯 wheel 安装、lint、类型
+检查、覆盖率、源码包以及 Skill 校验。
+
+## 许可证
+
+MIT，见 [LICENSE](https://github.com/luoyueyuguang/roofp/blob/main/LICENSE)。

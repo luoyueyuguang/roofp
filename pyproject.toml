@@ -4,15 +4,35 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "roofp"
-version = "0.1.0"
-description = "A roofline plotting tool with JSON and CLI inputs."
+version = "0.2.0"
+description = "Schema-versioned Roofline analysis, comparison, and plotting for humans and AI agents."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
+authors = [{ name = "luoyueyuguang" }]
+keywords = ["roofline", "performance", "mcp", "visualization"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Visualization",
+]
 dependencies = [
     "matplotlib>=3.8",
     "mcp>=1.28.1",
+    "numpy>=1.23",
 ]
+
+[project.urls]
+Homepage = "https://github.com/luoyueyuguang/roofp"
+Repository = "https://github.com/luoyueyuguang/roofp"
+Issues = "https://github.com/luoyueyuguang/roofp/issues"
+Documentation = "https://github.com/luoyueyuguang/roofp#readme"
 
 [project.scripts]
 roofp = "roofp.cli:main"
@@ -21,5 +41,32 @@ roofp-mcp = "roofp.mcp_server:main"
 [tool.setuptools.packages.find]
 include = ["roofp*"]
 
-[tool.uv]
-package = false
+[dependency-groups]
+dev = [
+    "coverage[toml]>=7.6",
+    "mypy>=1.11",
+    "ruff>=0.6",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["roofp"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+skip_covered = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+python_version = "3.10"
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true

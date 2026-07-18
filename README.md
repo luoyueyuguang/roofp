@@ -1,129 +1,103 @@
-[English](README.md) · [中文](README_zh.md) &nbsp;|&nbsp; [Quick Start](#quick-start) · [MCP Server](#mcp-server) · [Skill](#ai-agent-skill) · [Config](#json-config-format) · [Tests](#tests)
+[English](https://github.com/luoyueyuguang/roofp/blob/main/README.md) · [中文](https://github.com/luoyueyuguang/roofp/blob/main/README_zh.md)
 
 <p align="center">
-  <img src="docs/assets/logo.png" width="220" alt="roofp Logo">
+  <img src="https://raw.githubusercontent.com/luoyueyuguang/roofp/main/docs/assets/logo.png" width="220" alt="roofp logo">
 </p>
 
 <h1 align="center">roofp</h1>
 
 <p align="center">
-  <strong>Configurable roofline plotting for compute, bandwidth, and operator performance.</strong>
+  <strong>Schema-versioned Roofline analysis, comparison, and plotting for humans and AI agents.</strong>
 </p>
 
-<p align="center">
-  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python 3.10+"></a>
-  <a href="https://opensource.org/license/mit/"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License"></a>
-  <a href="https://matplotlib.org/"><img src="https://img.shields.io/badge/Plotting-matplotlib-11557c" alt="matplotlib"></a>
-</p>
+roofp accepts JSON configuration, CLI arguments, or structured MCP calls. It
+generates SVG, PNG, and PDF plots and reports every measured operator against
+each configured roof. Version 0.2 separates theoretical hardware capability
+from per-hardware measured utilization and makes dimensional units explicit in
+the output schema.
 
-This project generates roofline plots from either a JSON config file or
-command-line arguments. It uses `matplotlib` for rendering and can write SVG,
-PNG, PDF, or any other format supported by `matplotlib`.
+## Roofline model
 
-## What the inputs mean
+For a roof with peak compute `P` in `FLOP/s`, bandwidth `B` in `Byte/s`, and
+arithmetic intensity `I` in `FLOP/Byte`:
 
-- `compute`: throughput in `FLOP/s`
-- `bandwidth`: memory throughput in `Byte/s`
-- `arithmetic intensity`: `compute / bandwidth`, in `FLOP/Byte`
-
-For each roof, the tool builds:
-
-- memory roof: `performance = bandwidth * arithmetic intensity`
-- compute roof: `performance = peak FLOP/s`
-- ridge point: `peak FLOP/s / bandwidth`
-
-For each operator point, the tool accepts:
-
-- `compute`: throughput in `FLOP/s`
-- `arithmetic_intensity`: in `FLOP/Byte` — directly places the operator on the x-axis
-
-The underlying bandwidth is derived as `compute / arithmetic_intensity`.
-
-## Quick start
-
-Install dependencies:
-
-```bash
-uv sync
+```text
+ridge point = P / B
+roof ceiling(I) = min(P, B * I)
+utilization = measured performance / roof ceiling(I)
 ```
 
-Run with a JSON config:
+An operator left of the ridge is memory-bound, one right of it is
+compute-bound, and a value equal within the documented numerical tolerance is
+reported as `ridge`. A measurement above its configured roof is diagnostic
+evidence of mismatched units, precision, FLOP counting, sparsity conventions,
+or measurement scope—not a valid utilization winner.
+
+## Install and run
+
+Development checkout:
 
 ```bash
-uv run python -m roofp --config examples/sample_config.json
+uv sync --locked --all-groups
+uv run --no-sync roofp --config examples/sample_config.json
 ```
 
-Run with command-line arguments only:
+CLI-only example:
 
 ```bash
-uv run python -m roofp \
+uv run --no-sync roofp \
   --ideal-compute "1.2 TFLOP/s" \
   --ideal-bandwidth "800 GB/s" \
   --actual-compute "800 GFLOP/s" \
   --actual-bandwidth "500 GB/s" \
   --operator GEMM "650 GFLOP/s" "3.25 FLOP/Byte" \
-  --operator Attention "280 GFLOP/s" "1.273 FLOP/Byte" \
   --output roofline.svg
 ```
 
-Run with only ideal roof values:
+The CLI writes exactly one JSON document to stdout. Human-readable artifact
+status goes to stderr, so shell tools can safely consume stdout:
 
 ```bash
-uv run python -m roofp \
-  --ideal-compute "1.2 TFLOP/s" \
-  --ideal-bandwidth "800 GB/s" \
-  --output ideal_only.svg
+uv run --no-sync roofp --config examples/sample_config.json > result.json
 ```
 
-### Silent mode (JSON analysis only)
+### Analysis-only mode
 
-`--silent` skips image generation and writes machine-readable JSON analysis to `--output`:
+`--analysis-only` skips plotting and atomically writes a JSON artifact.
+`--silent` remains an alias for compatibility:
 
 ```bash
-uv run python -m roofp --silent \
+uv run --no-sync roofp --analysis-only \
   --ideal-compute "1.2 TFLOP/s" \
   --ideal-bandwidth "800 GB/s" \
   --operator GEMM "650 GFLOP/s" "3.25 FLOP/Byte" \
   --output analysis.json
 ```
 
-The JSON includes per-operator analysis:
-
-- `bound` — `"memory"` or `"compute"` relative to the ideal ridge point
-- `ridge_ratio` — arithmetic intensity / ridge_point (>1 = compute-bound)
-- `roof_performance_flops` — roofline ceiling at this arithmetic intensity
-- `headroom_ratio` — current perf / roof perf
-
-If both JSON config and CLI values are provided, CLI values override the same
-fields from config.
+When a plot-oriented config selects `roofline.svg`, adding `--analysis-only`
+uses `analysis.json` unless the CLI explicitly provides another `.json` path.
+This prevents JSON from being written into an image-named file.
 
 ## Supported units
 
-Compute values are normalized to `FLOP/s`. Supported examples:
+Inputs may be normalized numbers, strings, or `{ "value": ..., "unit": ... }`
+objects in JSON configuration.
 
-- `1e12`
-- `1200 GFLOP/s`
-- `1.2 TFLOP/s`
-- `{"value": 1.2, "unit": "TFLOP/s"}`
+| Quantity | Normalized unit | Examples |
+|---|---|---|
+| Compute throughput | `FLOP/s` | `1e12`, `1200 GFLOP/s`, `1.2 TFLOP/s` |
+| Bandwidth | `Byte/s` | `8e11`, `800 GB/s`, `745 GiB/s` |
+| Arithmetic intensity | `FLOP/Byte` | `3.25`, `3.25 FLOP/Byte`, `650 GFLOP/s/200 GB/s` |
 
-Arithmetic intensity values are normalized to `FLOP/Byte`. Supported examples:
-- `3.25`
-- `3.25 FLOP/Byte`
-- `650/200` or `"650 GFLOP/s / 200 GB/s"` (ratio, auto-computed)
-- `{"value": 3.25, "unit": "FLOP/Byte"}`
+Prefixes are case-sensitive: `M` means mega. Ambiguous lowercase `m` is
+rejected. Uppercase `B` means bytes; bit-rate forms such as `Gb/s` and `Gbps`
+are rejected rather than silently interpreted as Byte/s. Bare `FLOP` is an
+operation count, not throughput, and is rejected; common throughput spellings
+such as `GFLOPS` remain supported.
 
+## JSON configuration
 
-Bandwidth values are normalized to `Byte/s`. Supported examples:
-
-- `8e11`
-- `800 GB/s`
-- `745 GiB/s`
-- `{"value": 800, "unit": "GB/s"}`
-
-Plain numbers are accepted for backwards compatibility. They are interpreted as
-already normalized values: `FLOP/s` for compute and `Byte/s` for bandwidth.
-
-## JSON config format
+See the complete [sample configuration](https://github.com/luoyueyuguang/roofp/blob/main/examples/sample_config.json).
 
 ```json
 {
@@ -131,115 +105,209 @@ already normalized values: `FLOP/s` for compute and `Byte/s` for bandwidth.
   "output": "roofline.svg",
   "plot": {
     "width": 1280,
-    "height": 720
+    "height": 720,
+    "show_bound_regions": true
   },
   "ideal": {
-    "label": "Ideal roof",
+    "label": "FP32 theoretical roof",
     "compute": "1.2 TFLOP/s",
-    "bandwidth": "800 GB/s"
+    "bandwidth": "800 GB/s",
+    "precision": "FP32",
+    "compute_kind": "theoretical",
+    "bandwidth_level": "dram",
+    "bandwidth_kind": "theoretical",
+    "fma_flop_count": 2,
+    "sparsity": "dense"
   },
   "actual": {
-    "label": "Measured roof",
+    "label": "FP32 measured roof",
     "compute": "800 GFLOP/s",
-    "bandwidth": "500 GB/s"
+    "bandwidth": "500 GB/s",
+    "precision": "FP32",
+    "compute_kind": "measured",
+    "bandwidth_level": "dram",
+    "bandwidth_kind": "measured",
+    "fma_flop_count": 2,
+    "sparsity": "dense"
   },
   "operators": [
     {
       "name": "GEMM",
       "compute": "650 GFLOP/s",
       "arithmetic_intensity": "3.25 FLOP/Byte"
-    },
-    {
-      "name": "Attention",
-      "compute": {
-        "value": 280,
-        "unit": "GFLOP/s"
-      },
-      "arithmetic_intensity": {
-        "value": 1.273,
-        "unit": "FLOP/Byte"
-      }
     }
   ]
 }
 ```
 
-Notes:
+The config schema is strict: misspelled or unknown fields fail early. `ideal`
+is required, `actual` is optional, and every roof must provide compute and
+bandwidth together. All numeric quantities must be finite and positive. When
+one or more `--operator` options are supplied, they replace the configured
+operator list rather than appending to it.
 
-- `ideal` is required.
-- `actual` is optional.
-- `operators` is optional and can be empty or contain many items.
-- Each operator requires `compute` and `arithmetic_intensity`.
-- All `compute`, `bandwidth`, and `arithmetic_intensity` values must be positive.
+## Analysis schema 2.0
 
-## Output
+All analysis results include `"schema_version": "2.0"`. Dimensional names are
+explicit, including:
 
-The output format is determined by the output filename suffix, for example
-`roofline.svg`, `roofline.png`, or `roofline.pdf`.
+- `peak_compute_flop_per_second`
+- `bandwidth_byte_per_second`
+- `measured_performance_flop_per_second`
+- `achieved_bandwidth_byte_per_second`
+- `arithmetic_intensity_flop_per_byte`
+- `roof_ceiling_flop_per_second`
 
+Each operator contains an `evaluations` object with separate `ideal`, `actual`,
+and `additional_N` results. An evaluation includes `bound`, `ridge_ratio`,
+`utilization_ratio`, `remaining_headroom_ratio`, and `above_roof`. Version 0.2
+intentionally removes ambiguous 0.1 aliases such as `headroom_ratio` and
+`compute_flops`.
 
-## MCP Server
+## MCP server
 
-roofp exposes an MCP (Model Context Protocol) server for AI agents to call directly:
+For development, start the locked environment explicitly:
 
 ```bash
-uv run roofp-mcp
+uv run --locked roofp-mcp
 ```
 
-Three tools are available:
+For a long-running client integration, sync once and disable startup syncing:
 
-| Tool | Description |
-|---|---|
-| `analyze_performance` | Quick bottleneck diagnosis: bound type, headroom, ridge ratio, natural-language description. No plot. |
-| `generate_roofline` | Full analysis + SVG roofline plot. |
-| `compare_rooflines` | Compare operators across multiple hardware configs with comparison matrix + SVG overlay. |
+```bash
+uv sync --locked
+uv run --no-sync roofp-mcp
+```
 
-Configure your MCP client (e.g. Claude Desktop, Codex) with:
+Example client configuration after the one-time sync:
 
 ```json
 {
   "mcpServers": {
     "roofp": {
       "command": "uv",
-      "args": ["run", "roofp-mcp"]
+      "args": [
+        "run",
+        "--no-sync",
+        "--directory",
+        "/absolute/path/to/roofp",
+        "roofp-mcp"
+      ]
     }
   }
 }
 ```
 
-## AI Agent Skill
+The server exposes structured inputs and structured outputs—do not JSON-encode
+lists inside strings.
 
-`skill.md` teaches AI coding agents when and how to use roofp. Download it into each
-tool's skills directory:
+### `analyze_performance`
 
-**Oh My Pi** — place in the project's skills directory, then reference via `skill://roofp`:
-```bash
-curl -o skills/roofp.md https://raw.githubusercontent.com/<user>/roofp/main/skill.md
+Use one roof and measured operators for diagnosis:
+
+```json
+{
+  "roof": {
+    "label": "FP32 theoretical",
+    "compute": "1.2 TFLOP/s",
+    "bandwidth": "800 GB/s",
+    "precision": "FP32"
+  },
+  "operators": [
+    {
+      "name": "GEMM",
+      "compute": "650 GFLOP/s",
+      "arithmetic_intensity": "650 GFLOP/s/200 GB/s"
+    }
+  ]
+}
 ```
 
-**Claude Code** — copy to Claude's user skills directory:
-```bash
-mkdir -p ~/.claude/skills
-curl -o ~/.claude/skills/roofp.md https://raw.githubusercontent.com/<user>/roofp/main/skill.md
+### `generate_roofline`
+
+Accepts a required `ideal` roof, optional `actual` roof, and optional operators.
+Set `include_svg: true` to include the SVG. It defaults to false so ordinary
+agent calls remain compact; SVG calls support at most 64 plotted points.
+
+### `compare_rooflines`
+
+This tool accepts peer `roofs` and workloads. Theoretical comparison needs only
+arithmetic intensity. Put measured performance under the matching roof label
+when a per-hardware utilization comparison is actually available:
+
+```json
+{
+  "roofs": [
+    {
+      "label": "System A FP32",
+      "compute": "1.2 TFLOP/s",
+      "bandwidth": "800 GB/s",
+      "precision": "FP32",
+      "fma_flop_count": 2,
+      "bandwidth_level": "dram"
+    },
+    {
+      "label": "System B FP32",
+      "compute": "1.6 TFLOP/s",
+      "bandwidth": "600 GB/s",
+      "precision": "FP32",
+      "fma_flop_count": 2,
+      "bandwidth_level": "dram"
+    }
+  ],
+  "workloads": [
+    {
+      "name": "Kernel 1",
+      "arithmetic_intensity": "2 FLOP/Byte",
+      "measurements": [
+        {"roof_label": "System A FP32", "compute": "700 GFLOP/s"},
+        {"roof_label": "System B FP32", "compute": "850 GFLOP/s"}
+      ]
+    }
+  ]
+}
 ```
 
-**Codex (OpenAI)** — copy to Codex skills directory:
-```bash
-mkdir -p ~/.codex/skills
-curl -o ~/.codex/skills/roofp.md https://raw.githubusercontent.com/<user>/roofp/main/skill.md
-```
+`best_theoretical_hardware` ranks capability. `best_valid_utilization_hardware`
+is emitted only from valid per-hardware measurements. Above-roof measurements
+are preserved in `excluded_above_roof_measurements` but cannot win. Metadata
+warnings flag mismatched or partially omitted precision, bandwidth level, FMA
+count, and sparsity conventions.
 
-**OpenCode** — copy to project-local skills:
-```bash
-mkdir -p .opencode/skills
-curl -o .opencode/skills/roofp.md https://raw.githubusercontent.com/<user>/roofp/main/skill.md
-```
+## AI agent Skill
 
-The skill covers: when to invoke roofline analysis, MCP tool parameters, arithmetic intensity
-input formats, and how to interpret `bound` / `ridge_ratio` / `headroom_ratio` results.
-
-## Tests
+The repository [SKILL.md](https://github.com/luoyueyuguang/roofp/blob/main/SKILL.md)
+describes the 0.2 MCP workflow. Install a version-pinned copy for Codex:
 
 ```bash
-uv run python -m unittest discover -s tests -v
+mkdir -p ~/.codex/skills/roofp
+curl --fail --silent --show-error --location --proto '=https' \
+  --output ~/.codex/skills/roofp/SKILL.md \
+  https://raw.githubusercontent.com/luoyueyuguang/roofp/v0.2.0/SKILL.md
 ```
+
+For another agent, place the same pinned file at that product's documented
+skill location. Review the downloaded instructions before enabling them. When
+release checksums are published, verify the file against the checksum in the
+same tagged release; this README deliberately does not invent a checksum before
+release publication.
+
+## Tests and release checks
+
+```bash
+uv sync --locked --all-groups
+uv run --no-sync python -W error -m unittest discover -s tests -v
+uv run --no-sync ruff check .
+uv run --no-sync mypy roofp
+uv run --no-sync coverage run -m unittest discover -s tests
+uv run --no-sync coverage report
+uv build
+```
+
+CI covers Python 3.10–3.14, lowest direct dependencies, protocol behavior,
+wheel-only installation, linting, type checks, coverage, source distribution,
+and Skill validation.
+
+## License
+
+MIT. See [LICENSE](https://github.com/luoyueyuguang/roofp/blob/main/LICENSE).

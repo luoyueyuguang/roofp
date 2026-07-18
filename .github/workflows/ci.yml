@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+
+      - name: Install locked project
+        run: uv sync --locked --all-groups
+
+      - name: Run tests with warnings as errors
+        run: uv run --no-sync python -W error -m unittest discover -s tests -v
+
+      - name: Compile Python sources
+        run: uv run --no-sync python -m compileall -q roofp tests
+
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.11"
+          enable-cache: true
+      - run: uv sync --locked --all-groups
+      - name: Lint
+        run: uv run --no-sync ruff check .
+      - name: Type check
+        run: uv run --no-sync mypy roofp
+      - name: Coverage
+        run: uv run --no-sync coverage run -m unittest discover -s tests
+      - run: uv run --no-sync coverage report
+
+  minimum-dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.10"
+          enable-cache: true
+      - run: uv venv --python 3.10 .venv-min
+      - name: Install lowest direct dependencies
+        run: uv pip install --python .venv-min/bin/python --resolution lowest-direct .
+      - run: .venv-min/bin/python -W error -m unittest discover -s tests -v
+
+  wheel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.11"
+          enable-cache: true
+      - run: uv build
+      - run: python tests/verify_distribution.py dist
+      - run: uv venv .venv-wheel
+      - name: Install only the built wheel
+        run: uv pip install --python .venv-wheel/bin/python dist/*.whl
+      - name: Verify wheel imports and entry points
+        run: |
+          .venv-wheel/bin/python -c "import roofp; assert roofp.__version__ == '0.2.0'"
+          .venv-wheel/bin/roofp --version
+          .venv-wheel/bin/python -c "from importlib.metadata import entry_points; names = {entry.name for entry in entry_points(group='console_scripts')}; assert {'roofp', 'roofp-mcp'} <= names"
+          .venv-wheel/bin/python -c "from roofp.mcp_server import mcp; assert len(mcp._tool_manager.list_tools()) == 3"

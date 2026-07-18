@@ -3,17 +3,30 @@
   "output": "roofline.svg",
   "plot": {
     "width": 1280,
-    "height": 720
+    "height": 720,
+    "show_bound_regions": true
   },
   "ideal": {
-    "label": "Ideal roof",
+    "label": "FP32 theoretical roof",
     "compute": "1.2 TFLOP/s",
-    "bandwidth": "800 GB/s"
+    "bandwidth": "800 GB/s",
+    "precision": "FP32",
+    "compute_kind": "theoretical",
+    "bandwidth_level": "dram",
+    "bandwidth_kind": "theoretical",
+    "fma_flop_count": 2,
+    "sparsity": "dense"
   },
   "actual": {
-    "label": "Measured roof",
+    "label": "FP32 measured roof",
     "compute": "800 GFLOP/s",
-    "bandwidth": "500 GB/s"
+    "bandwidth": "500 GB/s",
+    "precision": "FP32",
+    "compute_kind": "measured",
+    "bandwidth_level": "dram",
+    "bandwidth_kind": "measured",
+    "fma_flop_count": 2,
+    "sparsity": "dense"
   },
   "operators": [
     {

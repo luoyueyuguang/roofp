@@ -1,238 +1,440 @@
-"""roofp MCP server — roofline analysis tools for AI agents."""
+"""Structured MCP tools for roofline analysis."""
 
 from __future__ import annotations
 
 import io
-import json
+import logging
 import math
-from typing import Any
+from typing import Annotated, Any, Literal
 
 from mcp.server.fastmcp import FastMCP
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
-from .model import OperatorPoint, PlotRequest, RoofSpec, build_analysis
-from .plot import write_plot
+from .model import (
+    RELATIVE_TOLERANCE,
+    SCHEMA_VERSION,
+    BandwidthKind,
+    BandwidthLevel,
+    ComputeKind,
+    OperatorPoint,
+    PlotRequest,
+    RoofSpec,
+    build_analysis,
+    classify_bound,
+    comparison_metadata_warnings,
+)
 from .units import parse_arithmetic_intensity, parse_bandwidth, parse_compute
+
+logger = logging.getLogger(__name__)
+
 mcp = FastMCP(
     name="roofp",
-    instructions="Roofline performance analysis: generate plots, analyze operator bounds, compare hardware.",
+    instructions=(
+        "Schema-versioned Roofline analysis with structured inputs and outputs. "
+        "Use theoretical workload comparison separately from per-hardware measurements."
+    ),
 )
 
+_MAX_ROOFS = 32
+_MAX_OPERATORS = 256
+_MAX_PLOT_POINTS = 64
+_OPERATOR_COLORS = [
+    "#7c3aed",
+    "#059669",
+    "#d97706",
+    "#db2777",
+    "#0891b2",
+    "#65a30d",
+]
+_ROOF_COLORS = [
+    "#0072B2",
+    "#D55E00",
+    "#009E73",
+    "#E69F00",
+    "#CC79A7",
+    "#56B4E9",
+]
 
-def _make_roof(label: str, compute: str, bandwidth: str, color: str = "#2563eb") -> RoofSpec:
-    return RoofSpec(
-        label=label,
-        compute=parse_compute(compute),
-        bandwidth=parse_bandwidth(bandwidth),
-        color=color,
+ShortText = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=512),
+]
+UnitText = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=128),
+]
+UnitValue = UnitText | int | float
+
+
+class StrictModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class RoofInput(StrictModel):
+    """One hardware roof and the conventions used to measure it."""
+
+    label: ShortText
+    compute: UnitValue
+    bandwidth: UnitValue
+    color: ShortText | None = None
+    precision: ShortText | None = None
+    compute_kind: ComputeKind = "unspecified"
+    bandwidth_level: BandwidthLevel = "unspecified"
+    bandwidth_kind: BandwidthKind = "unspecified"
+    fma_flop_count: Literal[1, 2] | None = None
+    sparsity: ShortText | None = None
+    notes: ShortText | None = None
+
+    def to_spec(self, default_color: str) -> RoofSpec:
+        return RoofSpec(
+            label=self.label,
+            compute=parse_compute(self.compute),
+            bandwidth=parse_bandwidth(self.bandwidth),
+            color=self.color or default_color,
+            precision=self.precision,
+            compute_kind=self.compute_kind,
+            bandwidth_level=self.bandwidth_level,
+            bandwidth_kind=self.bandwidth_kind,
+            fma_flop_count=self.fma_flop_count,
+            sparsity=self.sparsity,
+            notes=self.notes,
+        )
+
+
+class OperatorInput(StrictModel):
+    """A measured operator point."""
+
+    name: ShortText
+    compute: UnitValue
+    arithmetic_intensity: UnitValue
+    color: ShortText | None = None
+
+    def to_point(self, default_color: str) -> OperatorPoint:
+        return OperatorPoint(
+            name=self.name,
+            compute=parse_compute(self.compute),
+            arithmetic_intensity=parse_arithmetic_intensity(self.arithmetic_intensity),
+            color=self.color or default_color,
+        )
+
+
+class HardwareMeasurement(StrictModel):
+    """Measured workload performance on one named roof."""
+
+    roof_label: ShortText
+    compute: UnitValue
+
+
+class WorkloadInput(StrictModel):
+    """A workload used for theoretical and optional measured comparison."""
+
+    name: ShortText
+    arithmetic_intensity: UnitValue
+    measurements: Annotated[list[HardwareMeasurement], Field(max_length=_MAX_ROOFS)] = Field(
+        default_factory=list
     )
 
 
-def _make_operator(name: str, compute: str, arithmetic_intensity: str, color: str = "#1f2937") -> OperatorPoint:
-    compute_val = parse_compute(compute)
-    ai_val = parse_arithmetic_intensity(arithmetic_intensity)
-    return OperatorPoint(
-        name=name,
-        compute=compute_val,
-        bandwidth=compute_val / ai_val,
-        color=color,
+class AnalysisResult(StrictModel):
+    schema_version: str
+    title: str
+    roof_description: str
+    roofs: dict[str, dict[str, Any]]
+    operators: list[dict[str, Any]]
+
+
+class GenerateRooflineResult(StrictModel):
+    schema_version: str
+    analysis: AnalysisResult
+    svg: str | None = None
+
+
+class CompareRooflinesResult(StrictModel):
+    schema_version: str
+    comparison_matrix: list[dict[str, Any]]
+    metadata_warnings: list[str]
+    summary: list[str]
+    svg: str | None = None
+
+
+def _make_operators(inputs: list[OperatorInput]) -> tuple[OperatorPoint, ...]:
+    return tuple(
+        item.to_point(_OPERATOR_COLORS[index % len(_OPERATOR_COLORS)])
+        for index, item in enumerate(inputs)
     )
 
 
 def _svg_to_string(request: PlotRequest) -> str:
-    """Generate SVG and return as string."""
-    buf = io.BytesIO()
-    write_plot(request, buf)
-    return buf.getvalue().decode("utf-8")
+    from .plot import write_plot
+
+    buffer = io.BytesIO()
+    write_plot(request, buffer)
+    return buffer.getvalue().decode("utf-8")
 
 
-# ── tools ──────────────────────────────────────────────────────────
+def _validate_plot_size(item_count: int, include_svg: bool) -> None:
+    if include_svg and item_count > _MAX_PLOT_POINTS:
+        raise ValueError(
+            f"SVG output supports at most {_MAX_PLOT_POINTS} plotted points; "
+            "set include_svg=false to analyze larger inputs"
+        )
+
+
+def _validate_item_count(
+    name: str,
+    item_count: int,
+    *,
+    maximum: int,
+    minimum: int = 0,
+) -> None:
+    if item_count < minimum:
+        raise ValueError(f"{name} requires at least {minimum} item(s)")
+    if item_count > maximum:
+        raise ValueError(f"{name} supports at most {maximum} item(s)")
 
 
 @mcp.tool(
-    description="Generate a roofline plot (SVG) and analysis JSON for a single hardware configuration. Ideal roof is required; actual roof and operators are optional.",
+    structured_output=True,
+    description=(
+        "Analyze one required ideal hardware roof, an optional measured roof, and "
+        "structured operator points. Set include_svg=true to include an SVG; it is "
+        "off by default to keep MCP responses compact."
+    ),
 )
 def generate_roofline(
-    ideal_label: str = "Ideal roof",
-    ideal_compute: str = "",
-    ideal_bandwidth: str = "",
-    actual_label: str = "",
-    actual_compute: str = "",
-    actual_bandwidth: str = "",
-    operators_json: str = "[]",
-    title: str = "roofp",
-) -> str:
-    """Generate a roofline plot and return analysis JSON + SVG base64."""
-    if not ideal_compute or not ideal_bandwidth:
-        return json.dumps({"error": "ideal_compute and ideal_bandwidth are required"})
-
-    ideal = _make_roof(ideal_label, ideal_compute, ideal_bandwidth, "#2563eb")
-
-    actual = None
-    if actual_compute and actual_bandwidth:
-        actual = _make_roof(actual_label or "Measured roof", actual_compute, actual_bandwidth, "#dc2626")
-
-    operators: list[OperatorPoint] = []
-    try:
-        op_data = json.loads(operators_json)
-    except json.JSONDecodeError:
-        return json.dumps({"error": f"Invalid operators_json: {operators_json!r}"})
-
-    _OP_COLORS = ["#7c3aed", "#059669", "#d97706", "#db2777", "#0891b2", "#65a30d"]
-    for i, item in enumerate(op_data):
-        if not isinstance(item, dict):
-            return json.dumps({"error": f"Each operator must be an object, got {item!r}"})
-        name = item.get("name") or item.get("label") or f"op_{i}"
-        compute = item.get("compute", "")
-        ai = item.get("arithmetic_intensity", "")
-        if not compute or not ai:
-            return json.dumps({"error": f"Operator {name!r} requires compute and arithmetic_intensity"})
-        operators.append(_make_operator(name, compute, ai, item.get("color", _OP_COLORS[i % len(_OP_COLORS)])))
-
-    request = PlotRequest(title=title, ideal=ideal, actual=actual, operators=operators)
-    analysis = build_analysis(request)
-    svg_text = _svg_to_string(request)
-
-    return json.dumps({"analysis": analysis, "svg": svg_text}, indent=2)
+    ideal: RoofInput,
+    operators: Annotated[
+        list[OperatorInput],
+        Field(max_length=_MAX_OPERATORS),
+    ]
+    | None = None,
+    actual: RoofInput | None = None,
+    title: ShortText = "roofp",
+    include_svg: bool = False,
+) -> GenerateRooflineResult:
+    """Generate schema-versioned analysis and optionally an SVG plot."""
+    operators = operators or []
+    _validate_item_count("operators", len(operators), maximum=_MAX_OPERATORS)
+    _validate_plot_size(len(operators), include_svg)
+    ideal_spec = ideal.to_spec(_ROOF_COLORS[0])
+    actual_spec = actual.to_spec(_ROOF_COLORS[1]) if actual is not None else None
+    points = _make_operators(operators)
+    request = PlotRequest(
+        title=title,
+        ideal=ideal_spec,
+        actual=actual_spec,
+        operators=points,
+    )
+    logger.info(
+        "generate_roofline operators=%d actual=%s svg=%s",
+        len(points),
+        actual_spec is not None,
+        include_svg,
+    )
+    analysis = AnalysisResult.model_validate(build_analysis(request))
+    return GenerateRooflineResult(
+        schema_version=SCHEMA_VERSION,
+        analysis=analysis,
+        svg=_svg_to_string(request) if include_svg else None,
+    )
 
 
 @mcp.tool(
-    description="Analyze operator performance against a roofline: determine bound type, headroom, ridge ratio, and return a human-readable description. No plot generated.",
+    structured_output=True,
+    description=(
+        "Analyze structured measured operator points against one hardware roof. "
+        "Returns per-roof bound, ceiling, utilization, headroom, and above-roof state."
+    ),
 )
 def analyze_performance(
-    ideal_compute: str,
-    ideal_bandwidth: str,
-    operators_json: str,
-) -> str:
-    """Quick performance analysis without generating a plot."""
-    if not ideal_compute or not ideal_bandwidth:
-        return json.dumps({"error": "ideal_compute and ideal_bandwidth are required"})
-
-    roof = _make_roof("Ideal", ideal_compute, ideal_bandwidth)
-    try:
-        op_data = json.loads(operators_json)
-    except json.JSONDecodeError:
-        return json.dumps({"error": f"Invalid operators_json: {operators_json!r}"})
-
-    operators: list[OperatorPoint] = []
-    for i, item in enumerate(op_data):
-        if not isinstance(item, dict):
-            return json.dumps({"error": f"Each operator must be an object"})
-        name = item.get("name", f"op_{i}")
-        operators.append(_make_operator(name, item.get("compute", ""), item.get("arithmetic_intensity", "")))
-
-    request = PlotRequest(title="roofp", ideal=roof, operators=operators)
-    return json.dumps(build_analysis(request), indent=2)
+    roof: RoofInput,
+    operators: Annotated[list[OperatorInput], Field(max_length=_MAX_OPERATORS)],
+    title: ShortText = "roofp analysis",
+) -> AnalysisResult:
+    """Analyze measured points without rendering a plot."""
+    _validate_item_count("operators", len(operators), maximum=_MAX_OPERATORS)
+    request = PlotRequest(
+        title=title,
+        ideal=roof.to_spec(_ROOF_COLORS[0]),
+        operators=_make_operators(operators),
+    )
+    logger.info("analyze_performance operators=%d", len(operators))
+    return AnalysisResult.model_validate(build_analysis(request))
 
 
 @mcp.tool(
-    description="Compare operator performance across multiple hardware configurations. Returns a comparison matrix, best-hardware recommendation, bottleneck analysis, and SVG overlay plot.",
+    structured_output=True,
+    description=(
+        "Compare theoretical ceilings for workloads across two or more peer roofs. "
+        "Optional per-hardware measurements enable valid utilization rankings; "
+        "above-roof measurements are reported but excluded from that ranking."
+    ),
 )
 def compare_rooflines(
-    roofs_json: str,
-    operators_json: str = "[]",
-    title: str = "Roofline Comparison",
-) -> str:
-    """Compare multiple roofs against the same operators."""
-    try:
-        roof_data = json.loads(roofs_json)
-    except json.JSONDecodeError:
-        return json.dumps({"error": f"Invalid roofs_json: {roofs_json!r}"})
+    roofs: Annotated[
+        list[RoofInput],
+        Field(min_length=2, max_length=_MAX_ROOFS),
+    ],
+    workloads: Annotated[
+        list[WorkloadInput],
+        Field(max_length=_MAX_OPERATORS),
+    ]
+    | None = None,
+    title: ShortText = "Roofline Comparison",
+    include_svg: bool = False,
+) -> CompareRooflinesResult:
+    """Compare peer roofs without conflating theory and measurements."""
+    workloads = workloads or []
+    _validate_item_count("roofs", len(roofs), minimum=2, maximum=_MAX_ROOFS)
+    _validate_item_count("workloads", len(workloads), maximum=_MAX_OPERATORS)
+    _validate_plot_size(
+        sum(len(workload.measurements) for workload in workloads),
+        include_svg,
+    )
+    specs = tuple(
+        roof.to_spec(_ROOF_COLORS[index % len(_ROOF_COLORS)]) for index, roof in enumerate(roofs)
+    )
+    labels = [roof.label for roof in specs]
+    if len(labels) != len(set(labels)):
+        duplicates = sorted({label for label in labels if labels.count(label) > 1})
+        raise ValueError(f"Roof labels must be unique: {', '.join(duplicates)}")
 
-    _ROOF_COLORS = ["#2563eb", "#dc2626", "#059669", "#d97706", "#7c3aed", "#db2777"]
-    roofs: list[RoofSpec] = []
-    for i, item in enumerate(roof_data):
-        if not isinstance(item, dict):
-            return json.dumps({"error": f"Each roof must be an object"})
-        roofs.append(_make_roof(
-            label=item.get("label", f"Roof_{i}"),
-            compute=item.get("compute", ""),
-            bandwidth=item.get("bandwidth", ""),
-            color=item.get("color", _ROOF_COLORS[i % len(_ROOF_COLORS)]),
-        ))
-
-    try:
-        op_data = json.loads(operators_json)
-    except json.JSONDecodeError:
-        return json.dumps({"error": f"Invalid operators_json: {operators_json!r}"})
-
-    _OP_COLORS = ["#1f2937", "#4b5563", "#9ca3af"]
-    operators: list[OperatorPoint] = []
-    for i, item in enumerate(op_data):
-        if not isinstance(item, dict):
-            return json.dumps({"error": f"Each operator must be an object"})
-        name = item.get("name", f"op_{i}")
-        operators.append(_make_operator(
-            name,
-            item.get("compute", ""),
-            item.get("arithmetic_intensity", ""),
-            _OP_COLORS[i % len(_OP_COLORS)],
-        ))
-
-    # Build comparison matrix
-    primary = roofs[0]
     comparison: list[dict[str, Any]] = []
-    for op in operators:
-        ai = op.arithmetic_intensity
-        hw_results: dict[str, dict] = {}
-        best_hw = None
-        best_headroom = -1.0
+    plot_points: list[OperatorPoint] = []
+    summary: list[str] = []
+    for workload in workloads:
+        intensity = parse_arithmetic_intensity(workload.arithmetic_intensity)
+        measurements: dict[str, float] = {}
+        for measurement in workload.measurements:
+            if measurement.roof_label not in labels:
+                raise ValueError(
+                    f"Workload {workload.name!r} references unknown roof {measurement.roof_label!r}"
+                )
+            if measurement.roof_label in measurements:
+                raise ValueError(
+                    f"Workload {workload.name!r} has duplicate measurement for "
+                    f"{measurement.roof_label!r}"
+                )
+            measurements[measurement.roof_label] = parse_compute(measurement.compute)
+
+        hardware: dict[str, dict[str, Any]] = {}
+        best_ceiling_label: str | None = None
+        best_ceiling = -math.inf
+        valid_utilizations: list[tuple[float, str]] = []
+        excluded_above_roof: list[str] = []
         bounds: set[str] = set()
 
-        for roof in roofs:
-            ridge = roof.ridge_point
-            roof_perf = min(roof.compute, roof.bandwidth * ai)
-            headroom = op.compute / roof_perf if roof_perf else None
-
-            if ai < ridge:
-                bound = "memory"
-            elif ai > ridge:
-                bound = "compute"
-            else:
-                bound = "ridge"
-
-            hw_results[roof.label] = {
-                "bound": bound,
-                "ridge_ratio": round(ai / ridge, 4),
-                "headroom_ratio": round(headroom, 4) if headroom else None,
-                "roof_performance_flops": roof_perf,
-            }
+        for roof in specs:
+            ceiling = min(roof.compute, roof.bandwidth * intensity)
+            bound = classify_bound(intensity, roof.ridge_point)
             bounds.add(bound)
+            result: dict[str, Any] = {
+                "bound": bound,
+                "ridge_ratio": intensity / roof.ridge_point,
+                "theoretical_ceiling_flop_per_second": ceiling,
+                "measured_performance_flop_per_second": None,
+                "utilization_ratio": None,
+                "remaining_headroom_ratio": None,
+                "above_roof": None,
+            }
+            if ceiling > best_ceiling:
+                best_ceiling = ceiling
+                best_ceiling_label = roof.label
 
-            if headroom and headroom > best_headroom:
-                best_headroom = headroom
-                best_hw = roof.label
+            measured = measurements.get(roof.label)
+            if measured is not None:
+                utilization = measured / ceiling
+                at_roof = math.isclose(
+                    utilization,
+                    1.0,
+                    rel_tol=RELATIVE_TOLERANCE,
+                    abs_tol=0.0,
+                )
+                above_roof = utilization > 1.0 and not at_roof
+                result.update(
+                    {
+                        "measured_performance_flop_per_second": measured,
+                        "utilization_ratio": utilization,
+                        "remaining_headroom_ratio": (0.0 if at_roof else 1.0 - utilization),
+                        "above_roof": above_roof,
+                    }
+                )
+                if above_roof:
+                    excluded_above_roof.append(roof.label)
+                else:
+                    valid_utilizations.append((utilization, roof.label))
+                plot_points.append(
+                    OperatorPoint(
+                        name=f"{workload.name} @ {roof.label}",
+                        compute=measured,
+                        arithmetic_intensity=intensity,
+                        color=roof.color,
+                    )
+                )
+            hardware[roof.label] = result
 
-        bottleneck_shift = None
-        if len(bounds) > 1:
-            bound_strs = [f"{hw_results[r.label]['bound']}-bound on {r.label}" for r in roofs]
-            bottleneck_shift = "; ".join(bound_strs)
-
-        comparison.append({
-            "operator": op.name,
-            "arithmetic_intensity_flop_per_byte": ai,
-            "compute_flops": op.compute,
-            "hardware": hw_results,
-            "best_hardware": best_hw,
-            "best_headroom": round(best_headroom, 4),
+        assert best_ceiling_label is not None
+        best_utilization_label = None
+        best_utilization = None
+        if valid_utilizations:
+            best_utilization, best_utilization_label = max(valid_utilizations)
+        bottleneck_shift = len(bounds) > 1
+        entry = {
+            "workload": workload.name,
+            "arithmetic_intensity_flop_per_byte": intensity,
+            "hardware": hardware,
+            "best_theoretical_hardware": best_ceiling_label,
+            "best_theoretical_ceiling_flop_per_second": best_ceiling,
+            "best_valid_utilization_hardware": best_utilization_label,
+            "best_valid_utilization_ratio": best_utilization,
+            "excluded_above_roof_measurements": excluded_above_roof,
             "bottleneck_shift": bottleneck_shift,
-        })
+        }
+        comparison.append(entry)
 
-    # Generate overlay plot: each roof becomes a dashed line with its own color
-    request = PlotRequest(title=title, ideal=primary, operators=operators)
-    svg_text = _svg_to_string(request)
+        shift_text = (
+            "; ".join(f"{hardware[roof.label]['bound']}-bound on {roof.label}" for roof in specs)
+            if bottleneck_shift
+            else "same bound across all hardware"
+        )
+        measured_text = (
+            f" Best valid utilization: {best_utilization:.1%} on {best_utilization_label}."
+            if best_utilization_label is not None and best_utilization is not None
+            else " No valid per-hardware utilization ranking is available."
+        )
+        excluded_text = (
+            " Above-roof measurements excluded: " + ", ".join(excluded_above_roof) + "."
+            if excluded_above_roof
+            else ""
+        )
+        summary.append(
+            f"{workload.name}: {shift_text}. Highest theoretical ceiling on "
+            f"{best_ceiling_label} ({best_ceiling:.3g} FLOP/s)."
+            f"{measured_text}{excluded_text}"
+        )
 
-    summary_parts: list[str] = []
-    for entry in comparison:
-        if entry["bottleneck_shift"]:
-            summary_parts.append(f"{entry['operator']}: {entry['bottleneck_shift']}. Best on {entry['best_hardware']} (headroom {entry['best_headroom']:.2%}).")
-        else:
-            summary_parts.append(f"{entry['operator']}: same bound across all hardware. Best on {entry['best_hardware']} (headroom {entry['best_headroom']:.2%}).")
-
-    return json.dumps({
-        "comparison_matrix": comparison,
-        "summary": summary_parts,
-        "svg": svg_text,
-    }, indent=2)
+    request = PlotRequest(
+        title=title,
+        ideal=specs[0],
+        additional_roofs=specs[1:],
+        operators=tuple(plot_points),
+        show_bound_regions=False,
+        peer_roofs=True,
+    )
+    logger.info(
+        "compare_rooflines roofs=%d workloads=%d measurements=%d svg=%s",
+        len(specs),
+        len(workloads),
+        len(plot_points),
+        include_svg,
+    )
+    return CompareRooflinesResult(
+        schema_version=SCHEMA_VERSION,
+        comparison_matrix=comparison,
+        metadata_warnings=comparison_metadata_warnings(specs),
+        summary=summary,
+        svg=_svg_to_string(request) if include_svg else None,
+    )
 
 
 def main() -> None:
