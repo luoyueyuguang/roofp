@@ -35,13 +35,26 @@ or measurement scope—not a valid utilization winner.
 
 ## Install and run
 
-The package is published under the distribution name `lyroofp`. The stable
-Python import and command names remain `roofp`:
+The current release is `lyroofp 0.2.2` on
+[PyPI](https://pypi.org/project/lyroofp/) and
+[GitHub Releases](https://github.com/luoyueyuguang/roofp/releases/tag/v0.2.2).
+Install the distribution as `lyroofp`, then import and invoke it as `roofp`:
 
 ```bash
-python -m pip install lyroofp
+python -m pip install lyroofp==0.2.2
 roofp --version
+roofp-mcp
 ```
+
+```python
+import roofp
+
+print(roofp.__version__)
+```
+
+There is no public `lyroofp` command or `import lyroofp` package. `lyroofp` is
+only the package-index distribution name; the stable Python and command
+interfaces are `roofp` and `roofp-mcp`.
 
 Development checkout:
 
@@ -174,13 +187,14 @@ intentionally removes ambiguous 0.1 aliases such as `headroom_ratio` and
 
 ## MCP server
 
-For development, start the locked environment explicitly:
+After installing from PyPI, start the MCP server directly:
 
 ```bash
-uv run --locked roofp-mcp
+roofp-mcp
 ```
 
-For a long-running client integration, sync once and disable startup syncing:
+For development, prepare the locked environment and disable implicit syncing
+when starting the long-running server:
 
 ```bash
 uv sync --locked
@@ -282,6 +296,21 @@ are preserved in `excluded_above_roof_measurements` but cannot win. Metadata
 warnings flag mismatched or partially omitted precision, bandwidth level, FMA
 count, and sparsity conventions.
 
+## Release and integrity
+
+Release `v0.2.2` contains the same wheel and sdist published to PyPI, the
+standalone `SKILL.md`, and `SHA256SUMS` covering all three files:
+
+- [GitHub Release v0.2.2](https://github.com/luoyueyuguang/roofp/releases/tag/v0.2.2)
+- [PyPI lyroofp](https://pypi.org/project/lyroofp/)
+- [TestPyPI lyroofp](https://test.pypi.org/project/lyroofp/)
+
+Verify downloaded release files from the directory that contains them:
+
+```bash
+sha256sum -c SHA256SUMS
+```
+
 ## AI agent Skill
 
 The repository [SKILL.md](https://github.com/luoyueyuguang/roofp/blob/main/SKILL.md)
@@ -291,14 +320,19 @@ describes the 0.2 MCP workflow. Install a version-pinned copy for Codex:
 mkdir -p ~/.codex/skills/roofp
 curl --fail --silent --show-error --location --proto '=https' \
   --output ~/.codex/skills/roofp/SKILL.md \
-  https://raw.githubusercontent.com/luoyueyuguang/roofp/v0.2.0/SKILL.md
+  https://raw.githubusercontent.com/luoyueyuguang/roofp/v0.2.2/SKILL.md
 ```
 
 For another agent, place the same pinned file at that product's documented
-skill location. Review the downloaded instructions before enabling them. When
-release checksums are published, verify the file against the checksum in the
-same tagged release; this README deliberately does not invent a checksum before
-release publication.
+skill location. Review the downloaded instructions before enabling them. To
+verify only the Skill against the checksum attached to the same release:
+
+```bash
+curl --fail --silent --show-error --location --proto '=https' \
+  --output SHA256SUMS \
+  https://github.com/luoyueyuguang/roofp/releases/download/v0.2.2/SHA256SUMS
+grep ' SKILL.md$' SHA256SUMS | sha256sum -c -
+```
 
 ## Tests and release checks
 
@@ -306,10 +340,16 @@ release publication.
 uv sync --locked --all-groups
 uv run --no-sync python -W error -m unittest discover -s tests -v
 uv run --no-sync ruff check .
+uv run --no-sync ruff format --check .
 uv run --no-sync mypy roofp
+uv run --no-sync python tests/validate_skill.py .
 uv run --no-sync coverage run -m unittest discover -s tests
 uv run --no-sync coverage report
+uv run --no-sync python -m compileall -q roofp tests
+uv lock --check --offline
+uv pip check
 uv build
+python tests/verify_distribution.py dist
 ```
 
 CI covers Python 3.10–3.14, lowest direct dependencies, protocol behavior,

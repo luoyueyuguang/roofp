@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import stat
 import sys
 import tempfile
 from pathlib import Path
@@ -345,6 +346,7 @@ def _atomic_write_text(path: Path, content: str) -> None:
             handle.write(content)
             handle.flush()
             os.fsync(handle.fileno())
+        os.chmod(temporary_path, _replacement_mode(path))
         os.replace(temporary_path, path)
     finally:
         if temporary_path is not None:
@@ -363,7 +365,16 @@ def _atomic_write_plot(request: PlotRequest, path: Path, renderer) -> None:
         ) as handle:
             temporary_path = Path(handle.name)
         renderer(request, str(temporary_path))
+        os.chmod(temporary_path, _replacement_mode(path))
         os.replace(temporary_path, path)
     finally:
         if temporary_path is not None:
             temporary_path.unlink(missing_ok=True)
+
+
+def _replacement_mode(path: Path) -> int:
+    """Preserve an existing output mode or use a conventional public artifact mode."""
+    try:
+        return stat.S_IMODE(path.stat().st_mode)
+    except FileNotFoundError:
+        return 0o644

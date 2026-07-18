@@ -4,3 +4,4 @@ include README_zh.md
 include SKILL.md
 include examples/sample_config.json
 include docs/assets/logo.png
+include tests/validate_skill.py

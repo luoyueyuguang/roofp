@@ -8,6 +8,29 @@ description: Analyze Roofline performance with structured MCP tools or the roofp
 Use MCP tools for agent workflows. Use the CLI when the user needs a local SVG,
 PNG, PDF, or JSON artifact.
 
+## Install and invoke the correct names
+
+Install the PyPI distribution as `lyroofp`, then use the stable `roofp` package
+and command names:
+
+```bash
+python -m pip install lyroofp
+roofp --version
+roofp-mcp
+```
+
+Import the Python API with `import roofp`. Do not use `import lyroofp` and do
+not invoke a `lyroofp` command; the distribution name is not an import or CLI
+entry point.
+
+In a repository checkout, prepare the locked environment before using
+`--no-sync`:
+
+```bash
+uv sync --locked
+uv run --no-sync roofp --version
+```
+
 ## Follow the workflow
 
 1. Identify the compute precision, FLOP-counting convention, sparsity convention,
@@ -151,7 +174,7 @@ Byte. Reject bit rates when a Byte/s value is required.
 
 ## Create local artifacts
 
-Run the CLI in a locked environment:
+After `uv sync --locked`, run the CLI without an implicit environment update:
 
 ```bash
 uv run --no-sync roofp --config examples/sample_config.json

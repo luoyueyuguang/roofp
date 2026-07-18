@@ -31,12 +31,25 @@ roof 上限(I) = min(P, B * I)
 
 ## 安装与运行
 
-PyPI 发行包名称为 `lyroofp`，Python 导入名和命令名仍保持为 `roofp`：
+当前版本是 `lyroofp 0.2.2`，发布在
+[PyPI](https://pypi.org/project/lyroofp/) 和
+[GitHub Releases](https://github.com/luoyueyuguang/roofp/releases/tag/v0.2.2)。
+安装时使用发行名 `lyroofp`，安装后使用稳定的 `roofp` 导入名和命令名：
 
 ```bash
-python -m pip install lyroofp
+python -m pip install lyroofp==0.2.2
 roofp --version
+roofp-mcp
 ```
+
+```python
+import roofp
+
+print(roofp.__version__)
+```
+
+项目不提供公开的 `lyroofp` 命令或 `import lyroofp` 包。`lyroofp` 只是在包索引
+中的发行名；稳定的 Python 和命令接口是 `roofp` 与 `roofp-mcp`。
 
 开发环境：
 
@@ -118,6 +131,17 @@ Byte；`Gb/s`、`Gbps` 等 bit-rate 写法不会被静默当作 Byte/s。裸 `FL
     "fma_flop_count": 2,
     "sparsity": "dense"
   },
+  "actual": {
+    "label": "FP32 measured roof",
+    "compute": "800 GFLOP/s",
+    "bandwidth": "500 GB/s",
+    "precision": "FP32",
+    "compute_kind": "measured",
+    "bandwidth_level": "dram",
+    "bandwidth_kind": "measured",
+    "fma_flop_count": 2,
+    "sparsity": "dense"
+  },
   "operators": [
     {
       "name": "GEMM",
@@ -150,13 +174,13 @@ Byte；`Gb/s`、`Gbps` 等 bit-rate 写法不会被静默当作 Byte/s。裸 `FL
 
 ## MCP Server
 
-开发时可直接锁定依赖启动：
+从 PyPI 安装后，直接启动 MCP Server：
 
 ```bash
-uv run --locked roofp-mcp
+roofp-mcp
 ```
 
-长期运行的客户端建议先同步一次，再关闭启动时同步：
+开发环境先按锁文件同步，再关闭长期服务启动时的隐式同步：
 
 ```bash
 uv sync --locked
@@ -188,6 +212,24 @@ uv run --no-sync roofp-mcp
 
 提供一条 roof 和一组实测算子，用于瓶颈诊断。输出会逐算子给出 roof 上限、
 瓶颈类型、利用率、剩余空间与 above-roof 状态。
+
+```json
+{
+  "roof": {
+    "label": "FP32 theoretical",
+    "compute": "1.2 TFLOP/s",
+    "bandwidth": "800 GB/s",
+    "precision": "FP32"
+  },
+  "operators": [
+    {
+      "name": "GEMM",
+      "compute": "650 GFLOP/s",
+      "arithmetic_intensity": "650 GFLOP/s/200 GB/s"
+    }
+  ]
+}
+```
 
 ### `generate_roofline`
 
@@ -238,6 +280,21 @@ uv run --no-sync roofp-mcp
 点会保留在 `excluded_above_roof_measurements`，但不会参与排名。precision、带宽
 层级、FMA 计数、稀疏性不一致或部分缺失时，结果会包含 metadata warnings。
 
+## 发布与完整性校验
+
+`v0.2.2` Release 包含与 PyPI 完全相同的 wheel 和 sdist、独立的
+`SKILL.md`，以及覆盖这三个文件的 `SHA256SUMS`：
+
+- [GitHub Release v0.2.2](https://github.com/luoyueyuguang/roofp/releases/tag/v0.2.2)
+- [PyPI lyroofp](https://pypi.org/project/lyroofp/)
+- [TestPyPI lyroofp](https://test.pypi.org/project/lyroofp/)
+
+在下载文件所在目录校验 Release 文件：
+
+```bash
+sha256sum -c SHA256SUMS
+```
+
 ## AI Agent Skill
 
 仓库中的 [SKILL.md](https://github.com/luoyueyuguang/roofp/blob/main/SKILL.md)
@@ -247,12 +304,18 @@ uv run --no-sync roofp-mcp
 mkdir -p ~/.codex/skills/roofp
 curl --fail --silent --show-error --location --proto '=https' \
   --output ~/.codex/skills/roofp/SKILL.md \
-  https://raw.githubusercontent.com/luoyueyuguang/roofp/v0.2.0/SKILL.md
+  https://raw.githubusercontent.com/luoyueyuguang/roofp/v0.2.2/SKILL.md
 ```
 
 其他 Agent 应按其官方文档把同一个固定版本文件放入技能目录。启用前应审阅下载的
-指令；发布页提供校验和后，再对照同一 tag 的校验和验证。本 README 不会在正式
-发布前虚构 checksum。
+指令。只校验同一 Release 中的 Skill：
+
+```bash
+curl --fail --silent --show-error --location --proto '=https' \
+  --output SHA256SUMS \
+  https://github.com/luoyueyuguang/roofp/releases/download/v0.2.2/SHA256SUMS
+grep ' SKILL.md$' SHA256SUMS | sha256sum -c -
+```
 
 ## 测试与发布校验
 
@@ -260,10 +323,16 @@ curl --fail --silent --show-error --location --proto '=https' \
 uv sync --locked --all-groups
 uv run --no-sync python -W error -m unittest discover -s tests -v
 uv run --no-sync ruff check .
+uv run --no-sync ruff format --check .
 uv run --no-sync mypy roofp
+uv run --no-sync python tests/validate_skill.py .
 uv run --no-sync coverage run -m unittest discover -s tests
 uv run --no-sync coverage report
+uv run --no-sync python -m compileall -q roofp tests
+uv lock --check --offline
+uv pip check
 uv build
+python tests/verify_distribution.py dist
 ```
 
 CI 覆盖 Python 3.10–3.14、最低直接依赖、MCP 协议、纯 wheel 安装、lint、类型

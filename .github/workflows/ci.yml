@@ -52,6 +52,8 @@ jobs:
         run: uv run --no-sync ruff check .
       - name: Type check
         run: uv run --no-sync mypy roofp
+      - name: Validate Skill
+        run: uv run --no-sync python tests/validate_skill.py .
       - name: Coverage
         run: uv run --no-sync coverage run -m unittest discover -s tests
       - run: uv run --no-sync coverage report
@@ -91,7 +93,7 @@ jobs:
         run: uv pip install --python .venv-wheel/bin/python dist/*.whl
       - name: Verify wheel imports and entry points
         run: |
-          .venv-wheel/bin/python -c "import roofp; assert roofp.__version__ == '0.2.1'"
+          .venv-wheel/bin/python -c "import roofp; assert roofp.__version__ == '0.2.2'"
           .venv-wheel/bin/roofp --version
           .venv-wheel/bin/python -c "from importlib.metadata import entry_points; names = {entry.name for entry in entry_points(group='console_scripts')}; assert {'roofp', 'roofp-mcp'} <= names"
           .venv-wheel/bin/python -c "from roofp.mcp_server import mcp; assert len(mcp._tool_manager.list_tools()) == 3"

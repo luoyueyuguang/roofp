@@ -2,6 +2,7 @@ import contextlib
 import io
 import json
 import os
+import stat
 import tempfile
 import unittest
 from pathlib import Path
@@ -125,6 +126,7 @@ class RooflineCliTests(unittest.TestCase):
             self.assertEqual(result, 0)
             self.assertEqual(json.loads(stdout.getvalue())["schema_version"], "2.0")
             self.assertEqual(json.loads(output.read_text())["schema_version"], "2.0")
+            self.assertEqual(stat.S_IMODE(output.stat().st_mode), 0o644)
             self.assertNotIn("Wrote", stdout.getvalue())
             self.assertIn("Wrote analysis", stderr.getvalue())
 
@@ -147,6 +149,7 @@ class RooflineCliTests(unittest.TestCase):
             self.assertEqual(result, 0)
             json.loads(stdout.getvalue())
             self.assertTrue(output.read_bytes().startswith(b"<?xml"))
+            self.assertEqual(stat.S_IMODE(output.stat().st_mode), 0o644)
             self.assertIn("Wrote roofline", stderr.getvalue())
 
     def test_atomic_plot_preserves_existing_file_on_render_failure(self) -> None:

@@ -8,7 +8,7 @@ import zipfile
 from pathlib import Path
 
 DISTRIBUTION_NAME = "lyroofp"
-VERSION = "0.2.1"
+VERSION = "0.2.2"
 
 
 def main(directory: str = "dist") -> None:
@@ -39,6 +39,7 @@ def main(directory: str = "dist") -> None:
         "SKILL.md",
         "examples/sample_config.json",
         "docs/assets/logo.png",
+        "tests/validate_skill.py",
     }
     for suffix in suffixes:
         if not any(name.endswith(suffix) for name in sdist_names):

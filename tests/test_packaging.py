@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class PackagingTests(unittest.TestCase):
     def test_runtime_and_distribution_versions_match(self) -> None:
-        self.assertEqual(roofp.__version__, "0.2.1")
+        self.assertEqual(roofp.__version__, "0.2.2")
         self.assertEqual(importlib.metadata.version("lyroofp"), roofp.__version__)
 
     def test_distribution_name_is_distinct_from_import_name(self) -> None:
@@ -29,13 +29,14 @@ class PackagingTests(unittest.TestCase):
             "SKILL.md",
             "examples/sample_config.json",
             "docs/assets/logo.png",
+            "tests/validate_skill.py",
         ):
             self.assertIn(path, manifest)
 
     def test_readme_uses_pinned_hardened_skill_download(self) -> None:
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         self.assertIn("pip install lyroofp", readme)
-        self.assertIn("/v0.2.0/SKILL.md", readme)
+        self.assertIn("/v0.2.2/SKILL.md", readme)
         self.assertIn("curl --fail --silent --show-error --location", readme)
         self.assertNotIn("/main/SKILL.md\n", readme)
 
