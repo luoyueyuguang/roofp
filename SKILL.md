@@ -14,9 +14,8 @@ Install the PyPI distribution as `lyroofp`, then use the stable `roofp` package
 and command names:
 
 ```bash
-python -m pip install lyroofp
+python -m pip install lyroofp==0.2.3
 roofp --version
-roofp-mcp
 ```
 
 Import the Python API with `import roofp`. Do not use `import lyroofp` and do
@@ -30,6 +29,32 @@ In a repository checkout, prepare the locked environment before using
 uv sync --locked
 uv run --no-sync roofp --version
 ```
+
+## Choose an available execution path
+
+Inspect the tools exposed by the current agent host before starting a process.
+
+- If `analyze_performance`, `generate_roofline`, and `compare_rooflines` are
+  available, call them directly. Do not launch another server.
+- If the MCP tools are unavailable and the task is one-roof analysis, an
+  ideal-versus-measured plot, or a local JSON artifact, use the CLI fallback below.
+- If peer-hardware comparison or MCP integration is required, configure
+  `roofp-mcp` as a long-running stdio MCP server in the client.
+
+For a PyPI installation, use `roofp-mcp` as the client command:
+
+```json
+{
+  "mcpServers": {
+    "roofp": {
+      "command": "roofp-mcp"
+    }
+  }
+}
+```
+
+Client configuration formats vary. `roofp-mcp` intentionally waits for a client;
+do not run it as a one-shot health check or wait for ordinary terminal output.
 
 ## Follow the workflow
 
@@ -88,13 +113,23 @@ Call `generate_roofline` with required `ideal`, optional `actual`, optional
     "label": "FP32 theoretical",
     "compute": "1.2 TFLOP/s",
     "bandwidth": "800 GB/s",
-    "precision": "FP32"
+    "precision": "FP32",
+    "compute_kind": "theoretical",
+    "bandwidth_level": "dram",
+    "bandwidth_kind": "theoretical",
+    "fma_flop_count": 2,
+    "sparsity": "dense"
   },
   "actual": {
     "label": "FP32 measured",
     "compute": "800 GFLOP/s",
     "bandwidth": "500 GB/s",
-    "precision": "FP32"
+    "precision": "FP32",
+    "compute_kind": "measured",
+    "bandwidth_level": "dram",
+    "bandwidth_kind": "measured",
+    "fma_flop_count": 2,
+    "sparsity": "dense"
   },
   "operators": [
     {
@@ -124,16 +159,22 @@ per roof only when those measurements actually exist:
       "compute": "1.2 TFLOP/s",
       "bandwidth": "800 GB/s",
       "precision": "FP32",
+      "compute_kind": "theoretical",
       "fma_flop_count": 2,
-      "bandwidth_level": "dram"
+      "bandwidth_level": "dram",
+      "bandwidth_kind": "theoretical",
+      "sparsity": "dense"
     },
     {
       "label": "System B FP32",
       "compute": "1.6 TFLOP/s",
       "bandwidth": "600 GB/s",
       "precision": "FP32",
+      "compute_kind": "theoretical",
       "fma_flop_count": 2,
-      "bandwidth_level": "dram"
+      "bandwidth_level": "dram",
+      "bandwidth_kind": "theoretical",
+      "sparsity": "dense"
     }
   ],
   "workloads": [
@@ -174,16 +215,35 @@ Byte. Reject bit rates when a Byte/s value is required.
 
 ## Create local artifacts
 
-After `uv sync --locked`, run the CLI without an implicit environment update:
+After installing from PyPI, call the CLI directly and write artifacts outside a
+repository checkout:
 
 ```bash
-uv run --no-sync roofp --config examples/sample_config.json
+roofp --analysis-only \
+  --ideal-compute "1.2 TFLOP/s" \
+  --ideal-bandwidth "800 GB/s" \
+  --operator GEMM "650 GFLOP/s" "650/200" \
+  --output /tmp/roofp-analysis.json
+roofp \
+  --ideal-compute "1.2 TFLOP/s" \
+  --ideal-bandwidth "800 GB/s" \
+  --operator GEMM "650 GFLOP/s" "650/200" \
+  --output /tmp/roofp-roofline.svg
+```
+
+In a repository checkout, sync once and keep generated files out of the worktree:
+
+```bash
+uv sync --locked
+uv run --no-sync roofp --config examples/sample_config.json \
+  --output /tmp/roofp-roofline.svg
 uv run --no-sync roofp --analysis-only \
   --ideal-compute "1.2 TFLOP/s" \
   --ideal-bandwidth "800 GB/s" \
   --operator GEMM "650 GFLOP/s" "650/200" \
-  --output analysis.json
+  --output /tmp/roofp-analysis.json
 ```
 
-Parse stdout as JSON. Read artifact status from stderr. Remember that repeated
-`--operator` arguments replace configured operators.
+Parse stdout as JSON and read artifact status from stderr. Repeated `--operator`
+arguments replace configured operators. The CLI does not expose peer-hardware
+comparison; configure and call `compare_rooflines` instead of inventing a ranking.

@@ -35,15 +35,14 @@ or measurement scope—not a valid utilization winner.
 
 ## Install and run
 
-The current release is `lyroofp 0.2.2` on
+The current release is `lyroofp 0.2.3` on
 [PyPI](https://pypi.org/project/lyroofp/) and
-[GitHub Releases](https://github.com/luoyueyuguang/roofp/releases/tag/v0.2.2).
+[GitHub Releases](https://github.com/luoyueyuguang/roofp/releases/tag/v0.2.3).
 Install the distribution as `lyroofp`, then import and invoke it as `roofp`:
 
 ```bash
-python -m pip install lyroofp==0.2.2
+python -m pip install lyroofp==0.2.3
 roofp --version
-roofp-mcp
 ```
 
 ```python
@@ -55,6 +54,9 @@ print(roofp.__version__)
 There is no public `lyroofp` command or `import lyroofp` package. `lyroofp` is
 only the package-index distribution name; the stable Python and command
 interfaces are `roofp` and `roofp-mcp`.
+
+`roofp-mcp` is a long-running stdio MCP server command, not a one-shot health
+check. Configure or start it only when an MCP client will connect.
 
 Development checkout:
 
@@ -193,6 +195,9 @@ After installing from PyPI, start the MCP server directly:
 roofp-mcp
 ```
 
+The command intentionally remains running while it waits for or serves an MCP
+client; it does not print a version and exit.
+
 For development, prepare the locked environment and disable implicit syncing
 when starting the long-running server:
 
@@ -201,7 +206,8 @@ uv sync --locked
 uv run --no-sync roofp-mcp
 ```
 
-Example client configuration after the one-time sync:
+For a PyPI installation, use `roofp-mcp` directly as the client's stdio command.
+For a repository checkout, use this configuration after the one-time sync:
 
 ```json
 {
@@ -298,10 +304,10 @@ count, and sparsity conventions.
 
 ## Release and integrity
 
-Release `v0.2.2` contains the same wheel and sdist published to PyPI, the
+Release `v0.2.3` contains the same wheel and sdist published to PyPI, the
 standalone `SKILL.md`, and `SHA256SUMS` covering all three files:
 
-- [GitHub Release v0.2.2](https://github.com/luoyueyuguang/roofp/releases/tag/v0.2.2)
+- [GitHub Release v0.2.3](https://github.com/luoyueyuguang/roofp/releases/tag/v0.2.3)
 - [PyPI lyroofp](https://pypi.org/project/lyroofp/)
 - [TestPyPI lyroofp](https://test.pypi.org/project/lyroofp/)
 
@@ -320,7 +326,7 @@ describes the 0.2 MCP workflow. Install a version-pinned copy for Codex:
 mkdir -p ~/.codex/skills/roofp
 curl --fail --silent --show-error --location --proto '=https' \
   --output ~/.codex/skills/roofp/SKILL.md \
-  https://raw.githubusercontent.com/luoyueyuguang/roofp/v0.2.2/SKILL.md
+  https://raw.githubusercontent.com/luoyueyuguang/roofp/v0.2.3/SKILL.md
 ```
 
 For another agent, place the same pinned file at that product's documented
@@ -330,7 +336,7 @@ verify only the Skill against the checksum attached to the same release:
 ```bash
 curl --fail --silent --show-error --location --proto '=https' \
   --output SHA256SUMS \
-  https://github.com/luoyueyuguang/roofp/releases/download/v0.2.2/SHA256SUMS
+  https://github.com/luoyueyuguang/roofp/releases/download/v0.2.3/SHA256SUMS
 grep ' SKILL.md$' SHA256SUMS | sha256sum -c -
 ```
 

@@ -8,7 +8,7 @@ import zipfile
 from pathlib import Path
 
 DISTRIBUTION_NAME = "lyroofp"
-VERSION = "0.2.2"
+VERSION = "0.2.3"
 
 
 def main(directory: str = "dist") -> None:

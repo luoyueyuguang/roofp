@@ -31,15 +31,14 @@ roof 上限(I) = min(P, B * I)
 
 ## 安装与运行
 
-当前版本是 `lyroofp 0.2.2`，发布在
+当前版本是 `lyroofp 0.2.3`，发布在
 [PyPI](https://pypi.org/project/lyroofp/) 和
-[GitHub Releases](https://github.com/luoyueyuguang/roofp/releases/tag/v0.2.2)。
+[GitHub Releases](https://github.com/luoyueyuguang/roofp/releases/tag/v0.2.3)。
 安装时使用发行名 `lyroofp`，安装后使用稳定的 `roofp` 导入名和命令名：
 
 ```bash
-python -m pip install lyroofp==0.2.2
+python -m pip install lyroofp==0.2.3
 roofp --version
-roofp-mcp
 ```
 
 ```python
@@ -50,6 +49,9 @@ print(roofp.__version__)
 
 项目不提供公开的 `lyroofp` 命令或 `import lyroofp` 包。`lyroofp` 只是在包索引
 中的发行名；稳定的 Python 和命令接口是 `roofp` 与 `roofp-mcp`。
+
+`roofp-mcp` 是长驻的 stdio MCP Server 命令，并不是一次性健康检查。只有在
+MCP 客户端将要连接时，才应配置或启动它。
 
 开发环境：
 
@@ -180,6 +182,8 @@ Byte；`Gb/s`、`Gbps` 等 bit-rate 写法不会被静默当作 Byte/s。裸 `FL
 roofp-mcp
 ```
 
+该命令等待或服务 MCP 客户端时会保持运行，并不会打印版本后自动退出。
+
 开发环境先按锁文件同步，再关闭长期服务启动时的隐式同步：
 
 ```bash
@@ -187,7 +191,8 @@ uv sync --locked
 uv run --no-sync roofp-mcp
 ```
 
-客户端配置示例：
+从 PyPI 安装时，直接把 `roofp-mcp` 配置为客户端的 stdio 命令。仓库开发环境
+完成一次同步后，使用下面的配置：
 
 ```json
 {
@@ -282,10 +287,10 @@ uv run --no-sync roofp-mcp
 
 ## 发布与完整性校验
 
-`v0.2.2` Release 包含与 PyPI 完全相同的 wheel 和 sdist、独立的
+`v0.2.3` Release 包含与 PyPI 完全相同的 wheel 和 sdist、独立的
 `SKILL.md`，以及覆盖这三个文件的 `SHA256SUMS`：
 
-- [GitHub Release v0.2.2](https://github.com/luoyueyuguang/roofp/releases/tag/v0.2.2)
+- [GitHub Release v0.2.3](https://github.com/luoyueyuguang/roofp/releases/tag/v0.2.3)
 - [PyPI lyroofp](https://pypi.org/project/lyroofp/)
 - [TestPyPI lyroofp](https://test.pypi.org/project/lyroofp/)
 
@@ -304,7 +309,7 @@ sha256sum -c SHA256SUMS
 mkdir -p ~/.codex/skills/roofp
 curl --fail --silent --show-error --location --proto '=https' \
   --output ~/.codex/skills/roofp/SKILL.md \
-  https://raw.githubusercontent.com/luoyueyuguang/roofp/v0.2.2/SKILL.md
+  https://raw.githubusercontent.com/luoyueyuguang/roofp/v0.2.3/SKILL.md
 ```
 
 其他 Agent 应按其官方文档把同一个固定版本文件放入技能目录。启用前应审阅下载的
@@ -313,7 +318,7 @@ curl --fail --silent --show-error --location --proto '=https' \
 ```bash
 curl --fail --silent --show-error --location --proto '=https' \
   --output SHA256SUMS \
-  https://github.com/luoyueyuguang/roofp/releases/download/v0.2.2/SHA256SUMS
+  https://github.com/luoyueyuguang/roofp/releases/download/v0.2.3/SHA256SUMS
 grep ' SKILL.md$' SHA256SUMS | sha256sum -c -
 ```
 
