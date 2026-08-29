@@ -31,13 +31,13 @@ roof 上限(I) = min(P, B * I)
 
 ## 安装与运行
 
-当前版本是 `lyroofp 0.2.3`，发布在
+当前版本是 `lyroofp 0.2.4`，发布在
 [PyPI](https://pypi.org/project/lyroofp/) 和
-[GitHub Releases](https://github.com/luoyueyuguang/roofp/releases/tag/v0.2.3)。
+[GitHub Releases](https://github.com/luoyueyuguang/roofp/releases/tag/v0.2.4)。
 安装时使用发行名 `lyroofp`，安装后使用稳定的 `roofp` 导入名和命令名：
 
 ```bash
-python -m pip install lyroofp==0.2.3
+python -m pip install lyroofp==0.2.4
 roofp --version
 ```
 
@@ -287,10 +287,10 @@ uv run --no-sync roofp-mcp
 
 ## 发布与完整性校验
 
-`v0.2.3` Release 包含与 PyPI 完全相同的 wheel 和 sdist、独立的
+`v0.2.4` Release 包含与 PyPI 完全相同的 wheel 和 sdist、独立的
 `SKILL.md`，以及覆盖这三个文件的 `SHA256SUMS`：
 
-- [GitHub Release v0.2.3](https://github.com/luoyueyuguang/roofp/releases/tag/v0.2.3)
+- [GitHub Release v0.2.4](https://github.com/luoyueyuguang/roofp/releases/tag/v0.2.4)
 - [PyPI lyroofp](https://pypi.org/project/lyroofp/)
 - [TestPyPI lyroofp](https://test.pypi.org/project/lyroofp/)
 
@@ -309,7 +309,7 @@ sha256sum -c SHA256SUMS
 mkdir -p ~/.codex/skills/roofp
 curl --fail --silent --show-error --location --proto '=https' \
   --output ~/.codex/skills/roofp/SKILL.md \
-  https://raw.githubusercontent.com/luoyueyuguang/roofp/v0.2.3/SKILL.md
+  https://raw.githubusercontent.com/luoyueyuguang/roofp/v0.2.4/SKILL.md
 ```
 
 其他 Agent 应按其官方文档把同一个固定版本文件放入技能目录。启用前应审阅下载的
@@ -318,7 +318,7 @@ curl --fail --silent --show-error --location --proto '=https' \
 ```bash
 curl --fail --silent --show-error --location --proto '=https' \
   --output SHA256SUMS \
-  https://github.com/luoyueyuguang/roofp/releases/download/v0.2.3/SHA256SUMS
+  https://github.com/luoyueyuguang/roofp/releases/download/v0.2.4/SHA256SUMS
 grep ' SKILL.md$' SHA256SUMS | sha256sum -c -
 ```
 

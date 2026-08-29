@@ -35,13 +35,13 @@ or measurement scope—not a valid utilization winner.
 
 ## Install and run
 
-The current release is `lyroofp 0.2.3` on
+The current release is `lyroofp 0.2.4` on
 [PyPI](https://pypi.org/project/lyroofp/) and
-[GitHub Releases](https://github.com/luoyueyuguang/roofp/releases/tag/v0.2.3).
+[GitHub Releases](https://github.com/luoyueyuguang/roofp/releases/tag/v0.2.4).
 Install the distribution as `lyroofp`, then import and invoke it as `roofp`:
 
 ```bash
-python -m pip install lyroofp==0.2.3
+python -m pip install lyroofp==0.2.4
 roofp --version
 ```
 
@@ -304,10 +304,10 @@ count, and sparsity conventions.
 
 ## Release and integrity
 
-Release `v0.2.3` contains the same wheel and sdist published to PyPI, the
+Release `v0.2.4` contains the same wheel and sdist published to PyPI, the
 standalone `SKILL.md`, and `SHA256SUMS` covering all three files:
 
-- [GitHub Release v0.2.3](https://github.com/luoyueyuguang/roofp/releases/tag/v0.2.3)
+- [GitHub Release v0.2.4](https://github.com/luoyueyuguang/roofp/releases/tag/v0.2.4)
 - [PyPI lyroofp](https://pypi.org/project/lyroofp/)
 - [TestPyPI lyroofp](https://test.pypi.org/project/lyroofp/)
 
@@ -326,7 +326,7 @@ describes the 0.2 MCP workflow. Install a version-pinned copy for Codex:
 mkdir -p ~/.codex/skills/roofp
 curl --fail --silent --show-error --location --proto '=https' \
   --output ~/.codex/skills/roofp/SKILL.md \
-  https://raw.githubusercontent.com/luoyueyuguang/roofp/v0.2.3/SKILL.md
+  https://raw.githubusercontent.com/luoyueyuguang/roofp/v0.2.4/SKILL.md
 ```
 
 For another agent, place the same pinned file at that product's documented
@@ -336,7 +336,7 @@ verify only the Skill against the checksum attached to the same release:
 ```bash
 curl --fail --silent --show-error --location --proto '=https' \
   --output SHA256SUMS \
-  https://github.com/luoyueyuguang/roofp/releases/download/v0.2.3/SHA256SUMS
+  https://github.com/luoyueyuguang/roofp/releases/download/v0.2.4/SHA256SUMS
 grep ' SKILL.md$' SHA256SUMS | sha256sum -c -
 ```
 

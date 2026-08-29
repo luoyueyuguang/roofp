@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class PackagingTests(unittest.TestCase):
     def test_runtime_and_distribution_versions_match(self) -> None:
-        self.assertEqual(roofp.__version__, "0.2.3")
+        self.assertEqual(roofp.__version__, "0.2.4")
         self.assertEqual(importlib.metadata.version("lyroofp"), roofp.__version__)
 
     def test_distribution_name_is_distinct_from_import_name(self) -> None:

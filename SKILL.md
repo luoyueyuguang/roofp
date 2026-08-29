@@ -14,7 +14,7 @@ Install the PyPI distribution as `lyroofp`, then use the stable `roofp` package
 and command names:
 
 ```bash
-python -m pip install lyroofp==0.2.3
+python -m pip install lyroofp==0.2.4
 roofp --version
 ```
 
