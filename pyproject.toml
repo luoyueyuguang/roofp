@@ -65,7 +65,11 @@ target-version = "py310"
 select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.mypy]
-python_version = "3.10"
+# numpy >= 2.5 ships .pyi type aliases using PEP 695 (`type X = ...`), which mypy
+# only parses when targeting Python 3.12+; matplotlib's typed stubs pull numpy in.
+# Runtime 3.10-3.14 compatibility is enforced by the test matrix, so mypy targets
+# 3.12 to stay usable on both CI and modern dev interpreters.
+python_version = "3.12"
 check_untyped_defs = true
 no_implicit_optional = true
 warn_redundant_casts = true

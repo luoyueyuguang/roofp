@@ -6,10 +6,29 @@ from mcp import ClientSession
 from roofp.mcp_server import mcp
 
 
+def _lowlevel_server():
+    """The low-level server moves across mcp majors: mcp 1.x FastMCP stores it as
+    `_mcp_server`, mcp >= 2.0 MCPServer as `_lowlevel_server`."""
+    server = getattr(mcp, "_lowlevel_server", None)
+    if server is None:
+        server = getattr(mcp, "_mcp_server", None)
+    return server
+
+
+def _field(obj, camel: str, snake: str):
+    """mcp 1.x protocol models are camelCase; mcp >= 2.0 exposes the same values
+    under snake_case field names. Resolve whichever this mcp version provides."""
+    value = getattr(obj, snake, None)
+    if value is None:
+        value = getattr(obj, camel, None)
+    return value
+
+
 async def protocol_round_trip():
     server_to_client_send, server_to_client_receive = anyio.create_memory_object_stream(0)
     client_to_server_send, client_to_server_receive = anyio.create_memory_object_stream(0)
-    initialization_options = mcp._mcp_server.create_initialization_options()
+    lowlevel = _lowlevel_server()
+    initialization_options = lowlevel.create_initialization_options()
 
     async with (
         server_to_client_send,
@@ -19,7 +38,7 @@ async def protocol_round_trip():
         anyio.create_task_group() as task_group,
     ):
         task_group.start_soon(
-            mcp._mcp_server.run,
+            lowlevel.run,
             client_to_server_receive,
             server_to_client_send,
             initialization_options,
@@ -62,21 +81,23 @@ class McpProtocolTests(unittest.TestCase):
             set(tools),
             {"generate_roofline", "analyze_performance", "compare_rooflines"},
         )
-        self.assertEqual(tools["generate_roofline"].inputSchema["required"], ["ideal"])
-        self.assertIsNotNone(tools["generate_roofline"].outputSchema)
+        generate = tools["generate_roofline"]
+        self.assertEqual(_field(generate, "inputSchema", "input_schema")["required"], ["ideal"])
+        self.assertIsNotNone(_field(generate, "outputSchema", "output_schema"))
         self.assertNotIn(
             "operators_json",
-            tools["generate_roofline"].inputSchema["properties"],
+            _field(generate, "inputSchema", "input_schema")["properties"],
         )
 
     def test_protocol_returns_structured_content(self) -> None:
-        self.assertFalse(self.result.isError)
-        self.assertEqual(self.result.structuredContent["schema_version"], "2.0")
-        evaluation = self.result.structuredContent["operators"][0]["evaluations"]["ideal"]
+        self.assertFalse(_field(self.result, "isError", "is_error"))
+        structured = _field(self.result, "structuredContent", "structured_content")
+        self.assertEqual(structured["schema_version"], "2.0")
+        evaluation = structured["operators"][0]["evaluations"]["ideal"]
         self.assertEqual(evaluation["utilization_ratio"], 0.5)
 
     def test_protocol_error_is_bounded(self) -> None:
-        self.assertTrue(self.invalid.isError)
+        self.assertTrue(_field(self.invalid, "isError", "is_error"))
         message = "".join(getattr(block, "text", "") for block in self.invalid.content)
         self.assertLess(len(message), 5_000)
         self.assertNotIn("sensitive-" * 1_000, message)

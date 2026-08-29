@@ -7,7 +7,11 @@ import logging
 import math
 from typing import Annotated, Any, Literal
 
-from mcp.server.fastmcp import FastMCP
+try:
+    # mcp >= 2.0 replaced FastMCP with MCPServer under mcp.server.mcpserver.
+    from mcp.server.mcpserver import MCPServer as _MCPServer
+except ImportError:  # pragma: no cover - mcp 1.x compatibility
+    from mcp.server.fastmcp import FastMCP as _MCPServer  # type: ignore[import-not-found, no-redef]
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from .model import (
@@ -27,7 +31,7 @@ from .units import parse_arithmetic_intensity, parse_bandwidth, parse_compute
 
 logger = logging.getLogger(__name__)
 
-mcp = FastMCP(
+mcp = _MCPServer(
     name="roofp",
     instructions=(
         "Schema-versioned Roofline analysis with structured inputs and outputs. "
