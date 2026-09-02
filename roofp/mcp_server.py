@@ -11,7 +11,7 @@ try:
     # mcp >= 2.0 replaced FastMCP with MCPServer under mcp.server.mcpserver.
     from mcp.server.mcpserver import MCPServer as _MCPServer
 except ImportError:  # pragma: no cover - mcp 1.x compatibility
-    from mcp.server.fastmcp import FastMCP as _MCPServer  # type: ignore[import-not-found, no-redef]
+    from mcp.server.fastmcp import FastMCP as _MCPServer  # type: ignore[no-redef, attr-defined]
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from .model import (
